@@ -1,3 +1,5 @@
+<!-- components/macropad/MacropadTab.svelte  -->
+
 <script>
   import MacropadView from './MacropadView.svelte';
   import MacropadOptions from './MacropadOptions.svelte';

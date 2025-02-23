@@ -1,22 +1,26 @@
+<!-- components/macropad/MacropadOptions.svelte  -->
+
 <script>
-import { MacropadState } from '../../stores/MacropadStore.svelte.js';
+    import { MacropadState } from '../../stores/MacropadStore.svelte.js';
+    import BasicOptions from './BasicOptions.svelte'
+  import ExtendedOptions from './ExtendedOptions.svelte'
 
-const navOptions = {
-   button: ['Basic', 'Advanced', 'Macros'],
-   display: ['Display'],
-   encoder: ['Encoder'],
-   'encoder-btn': ['Basic', 'Advanced', 'Macros', 'Encoder']
-};
+    const navOptions = {
+    button: ['Basic', 'Extended', 'Macros'],
+    display: ['Display'],
+    encoder: ['Encoder'],
+    'encoder-btn': ['Basic', 'Extended', 'Macros', 'Encoder']
+    };
 
-const type = MacropadState.selectedComponentType
+    let availableOptions = $derived(navOptions[MacropadState.selectedComponentType] || []);
+    
 
-let availableOptions = $derived(navOptions[MacropadState.selectedComponentType] || []);
+    let selectedTab = $state(''); // Track active tab
+    
 
-let selectedTab = ''; // Track active tab
-
-function selectTab(tab) {
-   selectedTab = tab;
-}
+    function selectTab(tab) {
+    selectedTab = tab;
+    }
 </script>
 
 <nav class="macropad-options">
@@ -34,20 +38,19 @@ function selectTab(tab) {
    </div>
 
    <div class="tab-content">
-     {#if selectedTab === 'Basic'}
+     {#if selectedTab === 'Basic' }
        <div class="basic-options">
-         <h2>Basic Settings</h2>
+         <BasicOptions />
          
        </div>
-     {:else if selectedTab === 'Advanced'}
-       <div class="advanced-options">
-         <h2>Advanced Settings</h2>
+     {:else if selectedTab === 'Extended'}
+          <div class="extended-options">
+         <ExtendedOptions />
          
        </div>
      {:else if selectedTab === 'Macros'}
        <div class="macro-options">
          <h2>Macro Programming</h2>
-
        </div>
      {:else if selectedTab === 'Display'}
        <div class="display-options">
@@ -57,7 +60,6 @@ function selectTab(tab) {
      {:else if selectedTab === 'Encoder'}
        <div class="encoder-options">
          <h2>Encoder Settings</h2>
-
         </div>
      {/if}
    </div>

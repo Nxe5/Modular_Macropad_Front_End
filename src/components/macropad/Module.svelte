@@ -1,3 +1,5 @@
+<!-- components/macropad/Module.svelte  -->
+
 <script>
 export let moduleInfo;
 

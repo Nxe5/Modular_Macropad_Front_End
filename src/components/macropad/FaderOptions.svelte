@@ -1,0 +1,1 @@
+<!-- components/macropad/FaderOptions.svelte  -->

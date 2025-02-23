@@ -6,7 +6,6 @@
   import LightingTab from './components/lighting/LightingTab.svelte';
   import SettingsTab from './components/settings/SettingsTab.svelte';
 
-
   let activeTab = 'macropad';
 </script>
 
@@ -18,7 +17,7 @@
         <button
           class="flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors
             {activeTab === 'keys' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}"
-          on:click={() => activeTab = 'keys'}
+          on:click={() => activeTab = 'macropad'}
         >
           <Keyboard size={20} />
           <span>Macropad</span>

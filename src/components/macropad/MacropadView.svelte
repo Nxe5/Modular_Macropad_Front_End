@@ -1,3 +1,5 @@
+<!-- components/macropad/MacropadView.svelte  -->
+
 <script>
 	import Module from "./Module.svelte";
 
