@@ -32,9 +32,9 @@
 
 
 <div class="macropad-view">
-  {#each modules as module}
+  {#each modules as moduleInfo}
     <div class="module">
-      <Module {module}/>
+      <Module {moduleInfo}/>
     </div>
   {/each}
 </div>

@@ -1,6 +1,7 @@
 <script>
   import MacropadView from './MacropadView.svelte';
   import MacropadOptions from './MacropadOptions.svelte';
+  
 
   let mainModuleExample = {
   id: 'A1:B2:C3:D4:E5:F6',  // Unique MAC address as the ID for the main module
@@ -17,7 +18,7 @@
     },
     {
       id: 'rotary-btn-1', // Unique ID for the rotary encoder with button
-      type: 'rotary-btn',
+      type: 'encoder-btn',
       position: { row: 0, column: 4 },
       keyBinding: "Volume Up"  // For simplicity, a predefined action like "Volume Up"
     },

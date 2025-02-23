@@ -11,6 +11,11 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "src/components/macropad/componentStore.js",
+    "src/components/macropad/componentStore.js"
+  ],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,17 +1,18 @@
 <script>
-export let module;
-export let selectedComponent = null; 
-export let selectedType = null; 
+export let moduleInfo;
 
-const id = module.id;
-const name = module.name;
-const gridSize = module.gridSize;
-const components = module.components;
+const id = moduleInfo.id;
+const name = moduleInfo.name;
+const gridSize = moduleInfo.gridSize;
+const components = moduleInfo.components;
+
+import {MacropadState} from "../../stores/MacropadStore.svelte.js";
+
 
 function handleCellClick(component) {
-    selectedComponent = component.id
-    selectedType = component.type
-    console.log(id, selectedComponent, selectedType)
+    MacropadState.selectedComponent = component.id
+    MacropadState.selectedComponentType = component.type
+    console.log(id, MacropadState.selectedComponent, MacropadState.selectedComponentType)
 }
 
 </script>
@@ -23,7 +24,7 @@ function handleCellClick(component) {
     {#each components as component}
       {#if component.size}
         <div
-          class="cell {selectedComponent === component.id ? 'selected' : ''}"
+          class="cell {MacropadState.selectedComponent === component.id ? 'selected' : ''}"
           style="
             grid-area: {component.position.row + 1} / {component.position.column + 1} / span {component.size.rows} / span {component.size.columns};
           "
@@ -33,7 +34,7 @@ function handleCellClick(component) {
         </div>
       {:else}
         <div 
-          class="cell {selectedComponent === component.id ? 'selected' : ''}"
+          class="cell {MacropadState.selectedComponent === component.id ? 'selected' : ''}"
           style="grid-column: {component.position.column + 1}; grid-row: {component.position.row + 1}"
           on:click={()=>handleCellClick(component)}
         >
