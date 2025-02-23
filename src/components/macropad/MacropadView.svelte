@@ -1,4 +1,6 @@
 <script>
+	import Module from "./Module.svelte";
+
   export let modules;  // Receive module prop from parent
 
 </script>
@@ -26,14 +28,13 @@
     font-size: 14px;
     text-align: center;
   }
-
 </style>
 
 
 <div class="macropad-view">
   {#each modules as module}
     <div class="module">
-      {module}
+      <Module {module}/>
     </div>
   {/each}
 </div>

@@ -7,7 +7,7 @@
   import SettingsTab from './components/settings/SettingsTab.svelte';
 
 
-  let activeTab = 'keys';
+  let activeTab = 'macropad';
 </script>
 
 <main class="min-h-screen flex flex-col bg-gray-50">

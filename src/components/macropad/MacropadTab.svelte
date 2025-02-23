@@ -4,6 +4,8 @@
 
   let mainModuleExample = {
   id: 'A1:B2:C3:D4:E5:F6',  // Unique MAC address as the ID for the main module
+  name: 'Main Module',  // Name for the main module
+  description: 'This is the main module with a display, rotary encoder, and buttons.',  // Description for the main module
   gridSize: { rows: 5, columns: 5 },  // 5x5 grid for the main module
   components: [
     {
@@ -20,38 +22,38 @@
       keyBinding: "Volume Up"  // For simplicity, a predefined action like "Volume Up"
     },
     {
-      id: 'button-1', // Unique ID for the button
+      id: 'btn-1', // Unique ID for the button
       type: 'button',
-      position: { row: 1, column: 1 },
+      position: { row: 0, column: 3 },
       keyBinding: "DELAY 500; PRESS Ctrl; PRESS Z; RELEASE Ctrl; RELEASE Z"  // Undo action (Ctrl+Z)
     },
     {
-      id: 'button-2', // Unique ID for the button
+      id: 'btn-2', // Unique ID for the button
       type: 'button',
-      position: { row: 1, column: 2 },
+      position: { row: 1, column: 3 },
       keyBinding: "DELAY 100; PRESS Alt; PRESS F4; RELEASE Alt; RELEASE F4"  // Close Window (Alt+F4)
     },
     {
-      id: 'button-3', // Unique ID for the button
+      id: 'btn-3', // Unique ID for the button
       type: 'button',
-      position: { row: 1, column: 3 },
+      position: { row: 1, column: 4 },
       keyBinding: "DELAY 500; PRESS Ctrl; PRESS C; RELEASE Ctrl; RELEASE C"  // Copy (Ctrl+C)
     },
-    { id: 'button-4', position: { row: 2, column: 0 }, keyBinding: "DELAY 200; PRESS Space; RELEASE Space" },
-    { id: 'button-5', position: { row: 2, column: 1 }, keyBinding: "Ctrl+V" },
-    { id: 'button-6', position: { row: 2, column: 2 }, keyBinding: "Ctrl+A" },
-    { id: 'button-7', position: { row: 2, column: 3 }, keyBinding: "DELAY 200; PRESS Shift; PRESS Esc; RELEASE Shift; RELEASE Esc" },
-    { id: 'button-8', position: { row: 2, column: 4 }, keyBinding: "DELAY 300; PRESS Ctrl; PRESS S; RELEASE Ctrl; RELEASE S" },
-    { id: 'button-9', position: { row: 3, column: 0 }, keyBinding: "F5" },
-    { id: 'button-10', position: { row: 3, column: 1 }, keyBinding: "F11" },
-    { id: 'button-11', position: { row: 3, column: 2 }, keyBinding: "Alt+Tab" },
-    { id: 'button-12', position: { row: 3, column: 3 }, keyBinding: "Ctrl+Shift+Esc" },
-    { id: 'button-13', position: { row: 3, column: 4 }, keyBinding: "Ctrl+P" },
-    { id: 'button-14', position: { row: 4, column: 0 }, keyBinding: "Alt+F4" },
-    { id: 'button-15', position: { row: 4, column: 1 }, keyBinding: "Ctrl+W" },
-    { id: 'button-16', position: { row: 4, column: 2 }, keyBinding: "Ctrl+Shift+T" },
-    { id: 'button-17', position: { row: 4, column: 3 }, keyBinding: "Ctrl+N" },
-    { id: 'button-18', position: { row: 4, column: 4 }, keyBinding: "Ctrl+Shift+S" }
+    { id: 'btn-4', type: 'button', position: { row: 2, column: 0 }, keyBinding: "DELAY 200; PRESS Space; RELEASE Space" },
+    { id: 'btn-5', type: 'button', position: { row: 2, column: 1 }, keyBinding: "Ctrl+V" },
+    { id: 'btn-6', type: 'button', position: { row: 2, column: 2 }, keyBinding: "Ctrl+A" },
+    { id: 'btn-7', type: 'button', position: { row: 2, column: 3 }, keyBinding: "DELAY 200; PRESS Shift; PRESS Esc; RELEASE Shift; RELEASE Esc" },
+    { id: 'btn-8', type: 'button', position: { row: 2, column: 4 }, keyBinding: "DELAY 300; PRESS Ctrl; PRESS S; RELEASE Ctrl; RELEASE S" },
+    { id: 'btn-9', type: 'button', position: { row: 3, column: 0 }, keyBinding: "F5" },
+    { id: 'btn-10', type: 'button', position: { row: 3, column: 1 }, keyBinding: "F11" },
+    { id: 'btn-11', type: 'button', position: { row: 3, column: 2 }, keyBinding: "Alt+Tab" },
+    { id: 'btn-12', type: 'button', position: { row: 3, column: 3 }, keyBinding: "Ctrl+Shift+Esc" },
+    { id: 'btn-13', type: 'button', position: { row: 3, column: 4 }, keyBinding: "Ctrl+P" },
+    { id: 'btn-14', type: 'button', position: { row: 4, column: 0 }, keyBinding: "Alt+F4" },
+    { id: 'btn-15', type: 'button', position: { row: 4, column: 1 }, keyBinding: "Ctrl+W" },
+    { id: 'btn-16', type: 'button', position: { row: 4, column: 2 }, keyBinding: "Ctrl+Shift+T" },
+    { id: 'btn-17', type: 'button', position: { row: 4, column: 3 }, keyBinding: "Ctrl+N" },
+    { id: 'btn-18', type: 'button', position: { row: 4, column: 4 }, keyBinding: "Ctrl+Shift+S" }
   ]
 };
 
