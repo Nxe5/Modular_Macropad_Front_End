@@ -1,4 +1,4 @@
-<!-- src/lib/MacroCreator.svelte -->
+<!-- src/lib/MacroEditor.svelte -->
 <script>
     let activeTab = 'commands';
     let reports = [new Array(8).fill(0)];

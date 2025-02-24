@@ -2,9 +2,11 @@
 
 <script>
     import { MacropadState } from '../../stores/MacropadStore.svelte.js';
-    import BasicOptions from './BasicOptions.svelte'
-  import ExtendedOptions from './ExtendedOptions.svelte'
-  import MacroEditorOptions from './MacroEditorOptions.svelte'
+    import DisplayEditor from './DisplayEditor.svelte'
+    import EncoderEditor from './EncoderEditor.svelte'
+    import ExtendedEditor from './ExtendedEditor.svelte'
+    import MacroEditor from './MacroEditor.svelte'
+    import BasicEditor from './BasicEditor.svelte'
 
     const navOptions = {
     button: ['Basic', 'Extended', 'Macros'],
@@ -39,26 +41,26 @@
    <div class="tab-content">
      {#if selectedTab === 'Basic' }
        <div class="basic-options">
-         <BasicOptions />
+         <BasicEditor />
          
        </div>
      {:else if selectedTab === 'Extended'}
           <div class="extended-options">
-         <ExtendedOptions />
+         <ExtendedEditor />
          
        </div>
      {:else if selectedTab === 'Macros'}
        <div class="macro-options">
-         <MacroEditorOptions />
+         <MacroEditor />
        </div>
      {:else if selectedTab === 'Display'}
        <div class="display-options">
-         <h2>Display Settings</h2>
+         <DisplayEditor />
 
         </div>
      {:else if selectedTab === 'Encoder'}
        <div class="encoder-options">
-         <h2>Encoder Settings</h2>
+         <EncoderEditor />
         </div>
      {/if}
    </div>

@@ -1,4 +1,4 @@
-<!-- components/macropad/ExtendedSettings.svelte -->
+<!-- components/macropad/ExtendedEditor.svelte -->
 <script>
   import { Volume2, VolumeX, Play, StopCircle, SkipForward, SkipBack, Sun, Moon, Printer, ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-svelte';
 

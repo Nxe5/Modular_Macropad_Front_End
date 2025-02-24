@@ -1,4 +1,4 @@
-<!-- components/macropad/BasicSettings.svelte  -->
+<!-- components/macropad/BasicEditor.svelte  -->
 
 <script>
   export let selectedKey;
