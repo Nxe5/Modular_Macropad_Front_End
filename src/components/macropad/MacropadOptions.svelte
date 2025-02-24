@@ -70,18 +70,23 @@
 
 <style>
  .macropad-options {
-   padding: 20px;
-   border: 1px solid #dadada;
-   border-radius: 10px;
+    display: grid;
+    gap: 5px;
+    padding: 10px;
+    margin: 0 auto;
+    position: relative;
+    border-radius: 10px;
  }
 
- .nav-tabs {
-   display: flex;
-   gap: 10px;
-   padding-bottom: 15px;
-   border-bottom: 1px solid #dadada;
-   margin-bottom: 20px;
- }
+.nav-tabs {
+  display: flex;
+  gap: 10px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #dadada;
+  margin-bottom: 20px;
+  justify-content: center; /* Centers items horizontally */
+  width: 100%; /* Ensures the container takes full width */
+}
 
  .nav-tab {
    padding: 8px 16px;

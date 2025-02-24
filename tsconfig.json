@@ -2,10 +2,6 @@
   "extends": "@tsconfig/svelte/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": {
-      "$lib": ["./src/lib"],
-      "$lib/*": ["./src/lib/*"]
-    },
     "moduleResolution": "node",
     "module": "ESNext",
     "target": "ESNext",
@@ -16,11 +12,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.svelte",
-    "src/components/macropad/componentStore.js",
-    "src/components/macropad/componentStore.js"
-  ],
+  "include": ["src/**/*.ts", "src/**/*.svelte"],
   "exclude": ["node_modules", "dist"]
 }

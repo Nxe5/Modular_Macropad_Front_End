@@ -1,10 +1,6 @@
-<script lang="ts">
-	import './app.css';
-</script>
-
-<!--  src/App.svelte  -->
-
 <script>
+	import './app.css';
+
   import { Keyboard, Lightbulb, Settings } from 'lucide-svelte';
   import MacropadTab from './components/macropad/MacropadTab.svelte';
   import LightingTab from './components/lighting/LightingTab.svelte';
@@ -15,7 +11,7 @@
 
 <main class="min-h-screen flex flex-col bg-gray-50">
   <!-- Navigation -->
-  <nav class="bg-white shadow-md">
+  <nav class="bg-white shadow-lg">
     <div class="max-w-7xl mx-auto px-4">
       <div class="flex justify-center space-x-8 py-4">
         <button

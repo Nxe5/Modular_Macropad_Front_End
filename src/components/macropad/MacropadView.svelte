@@ -11,20 +11,18 @@
   .macropad-view {
     display: grid;
     gap: 5px;
-    border: 3px solid #ccc;
     padding: 10px;
     margin: 0 auto;
     position: relative;
     border-radius: 10px;
-    background-color: #f9f9f9;
   }
 
-  .module {
+  .module-container {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #ccc;
-    background-color: #fff;
+    /* border: 1px solid #ccc; */
+    /* background-color: #fff; */
     padding: 10px;
     border-radius: 5px;
     font-size: 14px;
@@ -35,7 +33,7 @@
 
 <div class="macropad-view">
   {#each modules as moduleInfo}
-    <div class="module">
+    <div class="module-container">
       <Module {moduleInfo}/>
     </div>
   {/each}

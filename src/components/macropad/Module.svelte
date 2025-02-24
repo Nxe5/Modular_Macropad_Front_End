@@ -26,21 +26,21 @@ function handleCellClick(component) {
     {#each components as component}
       {#if component.size}
         <div
-          class="cell {MacropadState.selectedComponent === component.id ? 'selected' : ''}"
+          class="cell {component.id} {component.type} {MacropadState.selectedComponent === component.id ? 'selected' : ''}"
           style="
             grid-area: {component.position.row + 1} / {component.position.column + 1} / span {component.size.rows} / span {component.size.columns};
           "
           on:click={()=>handleCellClick(component)}
         >
-          {component.id}
+          <!-- {component.id} -->
         </div>
       {:else}
         <div 
-          class="cell {MacropadState.selectedComponent === component.id ? 'selected' : ''}"
+          class="cell {component.id} {component.type} {MacropadState.selectedComponent === component.id ? 'selected' : ''}"
           style="grid-column: {component.position.column + 1}; grid-row: {component.position.row + 1}"
           on:click={()=>handleCellClick(component)}
         >
-          {component.id}
+          <!-- {component.id} -->
         </div>
       {/if}
     {/each}
@@ -84,7 +84,7 @@ h5 {
 }
 
 .cell {
-  background-color: white;
+  /* background-color: white; */
   border: 1px solid #ccc;
   display: flex;
   align-items: center;

@@ -52,15 +52,16 @@
 </div>
 
 <style>
-  .keyboard-container {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding: 10px;
-    background-color: #222;
-    border-radius: 8px;
-    width: fit-content;
-  }
+.keyboard-container {
+  display: grid;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  background-color: #222;
+  border-radius: 8px;
+  width: fit-content;
+  margin: 0 auto; /* Add this line */
+}
   
   .keyboard-row {
     display: flex;
@@ -70,7 +71,7 @@
   .keyboard-key {
     background-color: #444;
     color: white;
-    padding: 10px 15px;
+    padding: 7px 11px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
