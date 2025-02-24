@@ -4,6 +4,7 @@
     import { MacropadState } from '../../stores/MacropadStore.svelte.js';
     import BasicOptions from './BasicOptions.svelte'
   import ExtendedOptions from './ExtendedOptions.svelte'
+  import MacroEditorOptions from './MacroEditorOptions.svelte'
 
     const navOptions = {
     button: ['Basic', 'Extended', 'Macros'],
@@ -48,7 +49,7 @@
        </div>
      {:else if selectedTab === 'Macros'}
        <div class="macro-options">
-         <h2>Macro Programming</h2>
+         <MacroEditorOptions />
        </div>
      {:else if selectedTab === 'Display'}
        <div class="display-options">
