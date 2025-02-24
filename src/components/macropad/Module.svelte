@@ -75,7 +75,7 @@ h5 {
   display: grid;
   gap: 5px;
   border: 1px solid #dadada;
-  outline: 1px solid #dadada;
+  /* outline: 1px solid #dadada; */
   border-radius: 10px;
   outline-offset: 8px;
   font-size: 14px;

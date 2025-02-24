@@ -14,10 +14,8 @@
 
     let availableOptions = $derived(navOptions[MacropadState.selectedComponentType] || []);
     
-
     let selectedTab = $state(''); // Track active tab
     
-
     function selectTab(tab) {
     selectedTab = tab;
     }

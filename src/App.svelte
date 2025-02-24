@@ -1,3 +1,7 @@
+<script lang="ts">
+	import './app.css';
+</script>
+
 <!--  src/App.svelte  -->
 
 <script>
