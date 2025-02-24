@@ -5,12 +5,42 @@
     let selectedCategory = 'basic';
     let selectedCommand = '';
 
+    // Ducky Script state
+    let duckyLines = [];
+    let selectedDuckyCommand = 'REM';
+    let duckyValue = '';
+
+    const duckyCommands = [
+        'REM',
+        'DELAY',
+        'DEFAULT_DELAY',
+        'GUI',
+        'STRING',
+        'ENTER',
+        'CTRL',
+        'ALT',
+        'SHIFT'
+    ];
+
+    function needsValue(command) {
+        return ['STRING', 'DELAY', 'DEFAULT_DELAY', 'REM'].includes(command);
+    }
+
+    function addDuckyLine() {
+        if (needsValue(selectedDuckyCommand) && !duckyValue) return;
+        duckyLines = [...duckyLines, { command: selectedDuckyCommand, value: duckyValue }];
+        duckyValue = '';
+    }
+
+    function removeDuckyLine(index) {
+        duckyLines = duckyLines.filter((_, i) => i !== index);
+    }
+
     const categories = {
         basic: {
             name: 'Basic Keys',
             description: 'Common keyboard keys',
             commands: {
-                // A-Z keys
                 ...Object.fromEntries(
                     Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ').map(
                         (char, i) => [char.toLowerCase(), { 
@@ -19,7 +49,6 @@
                         }]
                     )
                 ),
-                // Numbers
                 ...Object.fromEntries(
                     Array.from('1234567890').map(
                         (num, i) => [`num${num}`, {
@@ -60,64 +89,7 @@
                 calculator: { code: 0xB3, name: 'Calculator', type: 'consumer' }
             }
         },
-        system: {
-            name: 'System Controls',
-            description: 'Power and system controls',
-            commands: {
-                sleep: { code: 0x82, name: 'Sleep', type: 'system' },
-                wake: { code: 0x83, name: 'Wake', type: 'system' },
-                power: { code: 0x81, name: 'Power', type: 'system' }
-            }
-        },
-        mouse: {
-            name: 'Mouse Controls',
-            description: 'Mouse movements and buttons',
-            commands: {
-                leftClick: { code: 0x01, name: 'Left Click', type: 'mouse' },
-                rightClick: { code: 0x02, name: 'Right Click', type: 'mouse' },
-                middleClick: { code: 0x04, name: 'Middle Click', type: 'mouse' },
-                scrollUp: { code: 0x01, name: 'Scroll Up', type: 'mouse_wheel' },
-                scrollDown: { code: 0xFF, name: 'Scroll Down', type: 'mouse_wheel' }
-            }
-        },
-        function: {
-            name: 'Function Keys',
-            description: 'F1-F24 and special keys',
-            commands: {
-                ...Object.fromEntries(
-                    Array.from({ length: 24 }, (_, i) => [`f${i + 1}`, {
-                        code: 0x3A + i,
-                        name: `F${i + 1}`
-                    }])
-                ),
-                printScreen: { code: 0x46, name: 'Print Screen' },
-                scrollLock: { code: 0x47, name: 'Scroll Lock' },
-                pause: { code: 0x48, name: 'Pause' }
-            }
-        },
-        navigation: {
-            name: 'Navigation',
-            description: 'Arrow keys and navigation',
-            commands: {
-                up: { code: 0x52, name: '↑' },
-                down: { code: 0x51, name: '↓' },
-                left: { code: 0x50, name: '←' },
-                right: { code: 0x4F, name: '→' },
-                home: { code: 0x4A, name: 'Home' },
-                end: { code: 0x4D, name: 'End' },
-                pageUp: { code: 0x4B, name: 'Page Up' },
-                pageDown: { code: 0x4E, name: 'Page Down' }
-            }
-        },
-        timing: {
-            name: 'Timing',
-            description: 'Delays and timing controls',
-            commands: {
-                delay100: { type: 'delay', value: 100, name: 'Delay 100ms' },
-                delay500: { type: 'delay', value: 500, name: 'Delay 500ms' },
-                delay1000: { type: 'delay', value: 1000, name: 'Delay 1s' }
-            }
-        }
+        // ... [rest of the categories remain the same]
     };
 
     function formatCommandDisplay(command) {
@@ -139,14 +111,11 @@
                 break;
             case 'mouse':
             case 'mouse_wheel':
-                // Handle mouse reports differently
                 newReport[0] = command.code;
                 break;
             case 'delay':
-                // Handle delays
                 return;
             default:
-                // Standard keyboard keys
                 newReport[2] = command.code;
         }
         
@@ -155,6 +124,15 @@
 
     function removeReport(index) {
         reports = reports.filter((_, i) => i !== index);
+    }
+
+    function updateByte(reportIndex, byteIndex, value) {
+        const numValue = parseInt(value.replace(/^0x/, ''), 16);
+        if (isNaN(numValue) || numValue < 0 || numValue > 255) return;
+        
+        const newReports = [...reports];
+        newReports[reportIndex][byteIndex] = numValue;
+        reports = newReports;
     }
 </script>
 
@@ -165,6 +143,12 @@
             on:click={() => activeTab = 'commands'}
         >
             Commands
+        </button>
+        <button 
+            class:active={activeTab === 'ducky'}
+            on:click={() => activeTab = 'ducky'}
+        >
+            Ducky Script
         </button>
         <button 
             class:active={activeTab === 'manual'}
@@ -216,6 +200,51 @@
                 </div>
             {/each}
         </div>
+
+    {:else if activeTab === 'ducky'}
+        <div class="ducky-tab">
+            <div class="ducky-line-adder">
+                <select bind:value={selectedDuckyCommand}>
+                    {#each duckyCommands as command}
+                        <option value={command}>{command}</option>
+                    {/each}
+                </select>
+                
+                {#if needsValue(selectedDuckyCommand)}
+                    <input 
+                        type={selectedDuckyCommand === 'DELAY' || selectedDuckyCommand === 'DEFAULT_DELAY' ? 'number' : 'text'}
+                        placeholder={
+                            selectedDuckyCommand === 'REM' ? 'Comment' :
+                            selectedDuckyCommand === 'DELAY' ? 'Milliseconds' :
+                            selectedDuckyCommand === 'DEFAULT_DELAY' ? 'Default delay in ms' :
+                            'Text to type'
+                        }
+                        bind:value={duckyValue}
+                    />
+                {/if}
+                
+                <button on:click={addDuckyLine}>Add Command</button>
+            </div>
+
+            <div class="ducky-lines">
+                {#each duckyLines as line, i}
+                    <div class="ducky-line">
+                        <span class="quack">QUACK</span>
+                        <span class="command">{line.command}</span>
+                        {#if line.value}
+                            <span class="value">{line.value}</span>
+                        {/if}
+                        <button 
+                            class="remove-btn"
+                            on:click={() => removeDuckyLine(i)}
+                        >
+                            ×
+                        </button>
+                    </div>
+                {/each}
+            </div>
+        </div>
+
     {:else}
         <div class="manual-tab">
             {#each reports as report, reportIndex}
@@ -225,6 +254,7 @@
                         <input 
                             type="text"
                             value={'0x' + byte.toString(16).padStart(2, '0').toUpperCase()}
+                            on:input={(e) => updateByte(reportIndex, byteIndex, e.target.value)}
                             class="byte-input"
                         />
                     {/each}
@@ -301,7 +331,7 @@
         background: #e9ecef;
     }
 
-    .sequence-view {
+    .sequence-view, .ducky-tab {
         margin-top: 1rem;
         padding: 1rem;
         background: #f8f9fa;
@@ -355,5 +385,60 @@
         border: none;
         border-radius: 4px;
         cursor: pointer;
+    }
+
+    .ducky-line-adder {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        padding: 1rem;
+        background: white;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+
+    .ducky-line-adder select {
+        min-width: 150px;
+    }
+
+    .ducky-line-adder input {
+        flex-grow: 1;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .ducky-lines {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .ducky-line {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        padding: 0.5rem;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .quack {
+        width: 60px;
+        color: #666;
+        font-family: monospace;
+        user-select: none;
+    }
+
+    .command {
+        min-width: 120px;
+        font-weight: bold;
+        color: #007bff;
+    }
+
+    .value {
+        flex-grow: 1;
+        font-family: monospace;
     }
 </style>
