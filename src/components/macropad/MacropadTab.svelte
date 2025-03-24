@@ -68,14 +68,21 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
   }
 
   .top-section {
     flex: 1;
+    display: flex;
+    justify-content: center;
   }
 
   .bottom-section {
     flex: 1;
+    display: flex;
+    justify-content: center;
   }
 </style>
 

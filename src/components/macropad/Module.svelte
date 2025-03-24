@@ -1,7 +1,9 @@
 <!-- components/macropad/Module.svelte  -->
 
 <script>
+import { createEventDispatcher } from 'svelte';
 export let moduleInfo;
+export let selectedComponentId = null;
 
 const id = moduleInfo.id;
 const name = moduleInfo.name;
@@ -12,12 +14,14 @@ import {MacropadState} from "../../stores/MacropadStore.svelte.js";
 import { onMount } from 'svelte';
 import { macroStore, wsStore } from '../../lib/api.ts';
 
+// Create event dispatcher
+const dispatch = createEventDispatcher();
+
 // Keep track of which components have macros assigned
 let macroAssignments = {};
 let macros = [];
 let loading = true;
 let pendingChanges = {};
-let selectedComponentDetails = null;
 
 // Load available macros on mount
 onMount(async () => {
@@ -28,6 +32,11 @@ onMount(async () => {
     
     // Check which components have macro assignments
     updateMacroAssignments();
+    
+    // Select the first component by default
+    if (components.length > 0) {
+      handleCellClick(components[0]);
+    }
   } catch (err) {
     console.error('Failed to load macros:', err);
     loading = false;
@@ -51,22 +60,25 @@ function updateMacroAssignments() {
 function handleCellClick(component) {
     MacropadState.selectedComponent = component.id;
     MacropadState.selectedComponentType = component.type;
-    console.log(id, MacropadState.selectedComponent, MacropadState.selectedComponentType);
     
-    // Display component details
-    selectedComponentDetails = {
+    // Create component details
+    const componentDetails = {
       id: component.id,
       type: component.type,
-      macroId: component.keyBinding?.startsWith('macro:') 
-        ? component.keyBinding.replace('macro:', '')
-        : null,
-      position: component.position
+      position: component.position,
+      currentBinding: component.keyBinding?.startsWith('macro:') 
+        ? getMacroName(component.keyBinding.replace('macro:', ''))
+        : component.keyBinding || null,
+      pendingBinding: pendingChanges[component.id] 
+        ? (pendingChanges[component.id].macroName || pendingChanges[component.id].macroId)
+        : null
     };
     
-    // Check for pending changes
-    if (pendingChanges[component.id]) {
-      selectedComponentDetails.pendingChange = pendingChanges[component.id];
-    }
+    // Dispatch event with component details
+    dispatch('componentSelected', {
+      component: componentDetails,
+      module: moduleInfo
+    });
 }
 
 // Function to get macro name from ID
@@ -81,7 +93,7 @@ function getComponentClass(component) {
   const classes = ['cell', component.id, component.type];
   
   // Add selected class if this component is selected
-  if (MacropadState.selectedComponent === component.id) {
+  if (selectedComponentId === component.id || MacropadState.selectedComponent === component.id) {
     classes.push('selected');
   }
   
@@ -105,17 +117,22 @@ export function setPendingChange(componentId, newMacroId) {
     macroName: getMacroName(newMacroId)
   };
   
-  // Update selected component details if open
-  if (selectedComponentDetails && selectedComponentDetails.id === componentId) {
-    selectedComponentDetails.pendingChange = pendingChanges[componentId];
+  // Find the component and re-trigger click to update details
+  const component = components.find(c => c.id === componentId);
+  if (component) {
+    handleCellClick(component);
   }
 }
 
 // Clear pending changes
 export function clearPendingChanges() {
   pendingChanges = {};
-  if (selectedComponentDetails) {
-    selectedComponentDetails.pendingChange = null;
+  
+  // Re-trigger click on current component to update details
+  const currentComponentId = MacropadState.selectedComponent;
+  const component = components.find(c => c.id === currentComponentId);
+  if (component) {
+    handleCellClick(component);
   }
 }
 </script>
@@ -133,6 +150,9 @@ export function clearPendingChanges() {
           "
           on:click={() => handleCellClick(component)}
           title={macroAssignments[component.id] ? `Macro: ${getMacroName(macroAssignments[component.id])}` : ''}
+          role="button"
+          tabindex="0"
+          on:keydown={e => e.key === 'Enter' && handleCellClick(component)}
         >
           {#if macroAssignments[component.id]}
             <div class="macro-indicator">M</div>
@@ -147,6 +167,9 @@ export function clearPendingChanges() {
           style="grid-column: {component.position.column + 1}; grid-row: {component.position.row + 1}"
           on:click={() => handleCellClick(component)}
           title={macroAssignments[component.id] ? `Macro: ${getMacroName(macroAssignments[component.id])}` : ''}
+          role="button"
+          tabindex="0"
+          on:keydown={e => e.key === 'Enter' && handleCellClick(component)}
         >
           {#if macroAssignments[component.id]}
             <div class="macro-indicator">M</div>
@@ -158,34 +181,6 @@ export function clearPendingChanges() {
       {/if}
     {/each}
   </div>
-  
-  <!-- Component Details Panel -->
-  {#if selectedComponentDetails}
-    <div class="component-details-panel">
-      <h3>Component Details</h3>
-      <div class="details-content">
-        <p><strong>ID:</strong> {selectedComponentDetails.id}</p>
-        <p><strong>Type:</strong> {selectedComponentDetails.type}</p>
-        <p><strong>Position:</strong> Row {selectedComponentDetails.position.row}, Col {selectedComponentDetails.position.column}</p>
-        
-        <div class="assignment-details">
-          <h4>Assignments</h4>
-          <p class="assignment-line">
-            <span class="component-name">{selectedComponentDetails.id}:</span> 
-            <span class="current-binding">{selectedComponentDetails.macroId ? getMacroName(selectedComponentDetails.macroId) || selectedComponentDetails.macroId : 'None'}</span>
-          </p>
-          
-          {#if selectedComponentDetails.pendingChange}
-            <p class="assignment-line pending">
-              <span class="component-name">{selectedComponentDetails.id}:</span> 
-              <span class="new-binding">{selectedComponentDetails.pendingChange.macroName || selectedComponentDetails.pendingChange.macroId}</span>
-            </p>
-          {/if}
-        </div>
-      </div>
-      <button class="close-button" on:click={() => selectedComponentDetails = null}>Close</button>
-    </div>
-  {/if}
   
   <!-- Pending Changes Summary -->
   {#if Object.keys(pendingChanges).length > 0}
@@ -205,14 +200,17 @@ export function clearPendingChanges() {
 
 <style>
 .module-container {
-  display: grid;
+  display: flex;
   flex-direction: column;
-  /* background-color: #f9f9f9; */
   padding: 10px;
   border-radius: 5px;
   font-size: 14px;
   text-align: center;
   position: relative;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  width: fit-content;
+  margin: 0 auto;
 }
 
 h2 {
@@ -232,28 +230,38 @@ h5 {
   display: grid;
   gap: 5px;
   border: 1px solid #dadada;
-  /* outline: 1px solid #dadada; */
   border-radius: 10px;
   outline-offset: 8px;
   font-size: 14px;
   text-align: center;
   padding: 6px;
+  width: fit-content;
 }
 
 .cell {
   position: relative;
-  /* background-color: white; */
   border: 1px solid #ccc;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 40px;
   min-width: 40px;
-  border-radius: 5px;  
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.cell:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.cell:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
 .cell.selected {
   border: 1px solid orange;
+  background-color: rgba(255, 166, 0, 0.1);
 }
 
 .cell.has-macro {
@@ -296,54 +304,6 @@ h5 {
   border-radius: 50%;
 }
 
-.component-details-panel {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 10;
-  width: 300px;
-  text-align: left;
-}
-
-.details-content {
-  margin-bottom: 16px;
-}
-
-.details-content p {
-  margin: 8px 0;
-}
-
-.current-assignment, .pending-assignment {
-  margin-top: 12px;
-  padding: 8px;
-  border-radius: 4px;
-}
-
-.current-assignment {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.pending-assignment {
-  background: rgba(246, 173, 59, 0.1);
-}
-
-.close-button {
-  background: #e5e7eb;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.close-button:hover {
-  background: #d1d5db;
-}
-
 .pending-changes-summary {
   margin-top: 16px;
   border: 1px solid rgba(246, 173, 59, 0.4);
@@ -369,39 +329,6 @@ h5 {
   font-style: italic;
   color: #666;
   margin-top: 8px;
-}
-
-.assignment-details {
-  margin-top: 12px;
-  padding: 8px;
-  border-radius: 4px;
-  background: rgba(240, 240, 240, 0.5);
-}
-
-.assignment-line {
-  display: flex;
-  margin: 6px 0;
-  align-items: center;
-}
-
-.component-name {
-  font-weight: bold;
-  margin-right: 8px;
-}
-
-.current-binding {
-  color: #3b82f6;
-}
-
-.assignment-line.pending {
-  background-color: rgba(250, 240, 137, 0.3);
-  padding: 4px 6px;
-  border-radius: 4px;
-}
-
-.new-binding {
-  color: #d97706;
-  font-weight: 500;
 }
 </style>
 

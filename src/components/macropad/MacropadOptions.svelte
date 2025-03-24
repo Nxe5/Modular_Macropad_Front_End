@@ -28,7 +28,6 @@
  {#if MacropadState.selectedComponentType}
    <div class="nav-tabs">
      {#each availableOptions as option}
-     {console.log(option)}
        <button 
          class="nav-tab {selectedTab === option ? 'active' : ''}"
          on:click={() => selectTab(option)}
@@ -73,12 +72,16 @@
 
 <style>
  .macropad-options {
-    display: grid;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: 5px;
     padding: 10px;
     margin: 0 auto;
     position: relative;
     border-radius: 10px;
+    width: 100%;
+    max-width: 800px;
  }
 
 .nav-tabs {
@@ -87,8 +90,8 @@
   padding-bottom: 15px;
   border-bottom: 1px solid #dadada;
   margin-bottom: 20px;
-  justify-content: center; /* Centers items horizontally */
-  width: 100%; /* Ensures the container takes full width */
+  justify-content: center;
+  width: 100%;
 }
 
  .nav-tab {
@@ -110,6 +113,7 @@
 
  .tab-content {
    padding: 10px;
+   width: 100%;
  }
 
  .no-selection {

@@ -17,11 +17,11 @@
   <ConnectionStatus position="top-right" />
 
   <!-- Navigation -->
-  <div class="navbar mb-2 p-2 bg-primary text-primary-content rounded-lg shadow">
-    <div class="flex-1">
-      <h1 class="text-xl font-bold ml-2">Macropad Control Panel</h1>
-    </div>
-    <div class="flex-none">
+  <div class="navbar mb-2 p-2 bg-primary text-primary-content rounded-lg shadow max-w-6xl mx-auto">
+    <div class="flex flex-col w-full items-center justify-center gap-2">
+      <div class="text-center mb-2">
+        <h1 class="text-xl font-bold">Macropad Control Panel</h1>
+      </div>
       <div class="tabs tabs-boxed bg-primary-focus">
         <button
           class={`tab transition-colors duration-200 ${activeTab === 'macropad' ? 'tab-active bg-primary-content text-primary' : 'text-primary-content'}`}
@@ -67,7 +67,7 @@
     </div>
   </div>
 
-  <div class="main-content mb-8">
+  <div class="main-content mb-8 max-w-6xl mx-auto w-full">
     {#if activeTab === 'macropad'}
       <MacropadTab />
     {:else if activeTab === 'macros'}
