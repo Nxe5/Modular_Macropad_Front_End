@@ -1,12 +1,13 @@
 <script>
 	import './app.css';
 
-  import { Keyboard, Coffee, Settings, List, LayoutGrid } from 'lucide-svelte';
+  import { Keyboard, Coffee, Settings, List, LayoutGrid, FileJson } from 'lucide-svelte';
   import MacropadTab from './components/macropad/MacropadTab.svelte';
   import LightingTab from './components/lighting/LightingTab.svelte';
   import SettingsTab from './components/settings/SettingsTab.svelte';
   import MacrosPage from './components/macropad/MacrosPage.svelte';
   import ConnectionStatus from './components/common/ConnectionStatus.svelte';
+  import RawConfigTab from './components/config/RawConfigTab.svelte';
 
   let activeTab = 'macropad';
 </script>
@@ -54,6 +55,14 @@
           <Settings class="inline-block w-5 h-5 mr-1" />
           Settings
         </button>
+        <button
+          class={`tab transition-colors duration-200 ${activeTab === 'raw-config' ? 'tab-active bg-primary-content text-primary' : 'text-primary-content'}`}
+          on:click={() => (activeTab = 'raw-config')}
+          data-tab="raw-config"
+        >
+          <FileJson class="inline-block w-5 h-5 mr-1" />
+          Raw Config
+        </button>
       </div>
     </div>
   </div>
@@ -67,6 +76,8 @@
       <LightingTab />
     {:else if activeTab === 'settings'}
       <SettingsTab />
+    {:else if activeTab === 'raw-config'}
+      <RawConfigTab />
     {/if}
   </div>
 </main>

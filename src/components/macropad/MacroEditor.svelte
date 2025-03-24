@@ -10,6 +10,7 @@
     let error = null;
     let isConnected = false;
     let isSaving = false;
+    let moduleComponent = null;
     
     // Get the selected component
     $: selectedComponent = MacropadState.selectedComponent;
@@ -35,6 +36,15 @@
             loading = true;
             macros = await macroStore.fetchAll();
             loading = false;
+            
+            // Find the Module component to access its methods
+            setTimeout(() => {
+                const moduleEl = document.querySelector('.module-container');
+                if (moduleEl && moduleEl.__svelte) {
+                    moduleComponent = moduleEl.__svelte;
+                    console.log('Module component found:', moduleComponent);
+                }
+            }, 500);
         } catch (err) {
             error = err.message || 'Failed to load macros';
             loading = false;
@@ -96,6 +106,12 @@
             } else {
                 await configStore.saveConfig(modules);
             }
+            
+            // Clear pending changes after saving
+            if (moduleComponent) {
+                moduleComponent.clearPendingChanges();
+            }
+            
             return true;
         } catch (err) {
             error = err.message || 'Failed to save configuration';
@@ -110,6 +126,11 @@
             const component = findComponent(selectedComponent);
             
             if (component) {
+                // Track the pending change first
+                if (moduleComponent) {
+                    moduleComponent.setPendingChange(selectedComponent, macroId);
+                }
+                
                 // Update the keyBinding to reference the macro
                 component.keyBinding = `macro:${macroId}`;
                 
@@ -139,6 +160,11 @@
             const component = findComponent(selectedComponent);
             
             if (component && component.keyBinding && component.keyBinding.startsWith('macro:')) {
+                // Add to pending changes
+                if (moduleComponent) {
+                    moduleComponent.setPendingChange(selectedComponent, null);
+                }
+                
                 // Save original keyBinding for error recovery
                 const originalKeyBinding = component.keyBinding;
                 
@@ -155,193 +181,280 @@
                     // Success message
                     alert(`Macro assignment removed from component ${selectedComponent}`);
                 } else {
-                    // Restore original keyBinding on save failure
+                    // Restore original binding on error
                     component.keyBinding = originalKeyBinding;
                 }
             } else {
-                // No macro assigned
-                alert(`No macro assigned to component ${selectedComponent}`);
+                alert(`Component ${selectedComponent} does not have a macro assigned`);
             }
         }
     }
     
-    // Helper function to refresh the component display
-    function refreshComponent() {
-        setTimeout(() => {
-            // Force a UI refresh by deselecting and reselecting the component
-            const type = MacropadState.selectedComponentType;
-            MacropadState.selectedComponent = null;
-            MacropadState.selectedComponentType = null;
-            setTimeout(() => {
-                MacropadState.selectedComponent = selectedComponent;
-                MacropadState.selectedComponentType = type;
-            }, 10);
-        }, 10);
-    }
-    
-    // Function to execute a macro for testing
+    // Execute a macro manually
     async function executeMacro(macroId) {
         try {
-            if (isConnected) {
-                await wsStore.executeMacro(macroId);
-            } else {
-                await macroStore.executeMacro(macroId);
-            }
+            await macroStore.executeMacro(macroId);
+            alert(`Macro executed successfully`);
         } catch (err) {
             error = err.message || 'Failed to execute macro';
         }
     }
     
-    // Function to navigate to the macro editor
-    function goToMacroEditor() {
-        // Navigate to the Macros tab
-        document.querySelector('button[data-tab="macros"]')?.click();
+    // Refresh display of components
+    function refreshComponent() {
+        // Force a redraw of the component in the UI
+        const modules = getModules();
+        if (modules) {
+            const updatedModules = [...modules];
+            document.querySelector('.macropad-view')?.parentNode?.__svelte?.ctx?.set(0, updatedModules);
+        }
+    }
+    
+    // Function to preview a macro assignment without saving
+    function previewMacroAssignment(macroId) {
+        if (selectedComponent && moduleComponent) {
+            moduleComponent.setPendingChange(selectedComponent, macroId);
+        }
+    }
+    
+    // Function to cancel all pending changes
+    function cancelPendingChanges() {
+        if (moduleComponent) {
+            moduleComponent.clearPendingChanges();
+        }
     }
 </script>
 
-<div class="macro-assignment-panel">
-    <h3 class="text-lg font-medium mb-4">Assign Macro to Component</h3>
+<div class="macro-editor">
+    <h2>Macro Editor</h2>
     
-    {#if !selectedComponent}
-        <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
-            <p>No component selected. Please select a component first.</p>
-    </div>
+    {#if error}
+        <div class="error-message">{error}</div>
+    {/if}
+    
+    {#if loading}
+        <div class="loading">Loading macros...</div>
+    {:else if !selectedComponent}
+        <div class="no-selection">
+            <p>Select a key on the grid to assign a macro</p>
+        </div>
     {:else}
-        <div class="mb-4">
-            <div class="flex justify-between items-center">
-                <p>Component: <strong>{selectedComponent}</strong></p>
-                
-                {#if configState?.lastSaved}
-                    <span class="text-xs text-gray-500">
-                        Last saved: {new Date(configState.lastSaved).toLocaleTimeString()}
-                    </span>
-                {/if}
-            </div>
-
-            {#if selectedComponentMacro}
-                <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="text-sm font-medium text-blue-800">Assigned Macro: {selectedComponentMacro.name}</p>
-                            <p class="text-xs text-blue-600">ID: {selectedComponentMacro.id}</p>
-                        </div>
-                        <div class="flex space-x-2">
-                            <button
-                                class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600 flex items-center"
-                                on:click={() => executeMacro(selectedComponentMacro.id)}
-                                disabled={!isConnected}
-                            >
-                                Test
-                            </button>
-                            
-                    <button 
-                                class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 flex items-center"
-                                on:click={removeMacroAssignment}
-                                disabled={isSaving}
-                    >
-                                Remove
-                    </button>
-                        </div>
-                    </div>
-            </div>
-            {/if}
-        </div>
-        
-        {#if !isConnected}
-            <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
-                <strong>Notice:</strong> Not connected to the device. Macro execution testing will not work.
-            </div>
-        {/if}
-        
-        {#if error}
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                <strong>Error:</strong> {error}
-                    <button 
-                    class="float-right font-bold"
-                    on:click={() => error = null}
-                    >
-                        ×
-                    </button>
-                </div>
-        {/if}
-        
-        {#if loading || isSaving}
-            <div class="flex justify-center py-4">
-                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-                <p class="ml-3 text-gray-600">{isSaving ? 'Saving...' : 'Loading...'}</p>
-            </div>
-        {:else if macros.length === 0}
-            <div class="bg-gray-100 rounded-lg p-6 text-center">
-                <p class="text-gray-500 mb-4">No macros available. Create some macros first.</p>
-                <button
-                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                    on:click={goToMacroEditor}
-                >
-                    Go to Macro Editor
-                </button>
-            </div>
-        {:else}
-            <h4 class="font-medium text-gray-700 mb-2">{selectedComponentMacro ? 'Assign Different Macro' : 'Available Macros'}</h4>
+        <div class="editor-content">
+            <h3>Selected Component: {selectedComponent}</h3>
             
-            <div class="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto p-2">
-                {#each macros as macro}
-                    {#if !selectedComponentMacro || selectedComponentMacro.id !== macro.id}
-                        <div class="bg-white shadow rounded-lg overflow-hidden">
-                            <div class="p-3">
-                                <div class="flex justify-between items-start">
-                                    <h4 class="font-medium">{macro.name}</h4>
-        </div>
-
-                                {#if macro.description}
-                                    <p class="text-sm text-gray-600 mt-1">{macro.description}</p>
-                {/if}
-                
-                                <p class="text-xs text-gray-500 mt-1">
-                                    {(macro.commands || []).length} commands
-                                </p>
-            </div>
-
-                            <div class="bg-gray-50 px-3 py-2 border-t flex justify-between">
-                                <button
-                                    class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 flex items-center"
-                                    on:click={() => executeMacro(macro.id)}
-                                    disabled={!isConnected}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
-                                    </svg>
-                                    Test
-                                </button>
-                                
+            {#if selectedComponentMacro}
+                <div class="current-assignment">
+                    <h4>Current Assignment</h4>
+                    <p>Macro: {selectedComponentMacro.name}</p>
+                    <p>ID: {selectedComponentMacro.id}</p>
+                    
+                    <div class="actions">
                         <button 
-                                    class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-                                    on:click={() => assignMacro(macro.id)}
-                                    disabled={isSaving}
+                            class="button button-secondary" 
+                            on:click={() => executeMacro(selectedComponentMacro.id)}
+                            disabled={isSaving}
                         >
-                                    Assign
+                            Test Macro
+                        </button>
+                        
+                        <button 
+                            class="button button-danger" 
+                            on:click={removeMacroAssignment}
+                            disabled={isSaving}
+                        >
+                            Remove Assignment
                         </button>
                     </div>
-                        </div>
-                    {/if}
-                {/each}
-        </div>
-
-            <div class="mt-4 pt-4 border-t border-gray-200">
-                    <button 
-                    class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 w-full"
-                    on:click={goToMacroEditor}
-                    >
-                    Manage Macros
-                    </button>
                 </div>
-        {/if}
+            {:else}
+                <p>No macro currently assigned</p>
+            {/if}
+            
+            <div class="macro-list">
+                <h4>Available Macros</h4>
+                {#if macros.length === 0}
+                    <p>No macros available. Create some first!</p>
+                {:else}
+                    <ul>
+                        {#each macros as macro}
+                            <li>
+                                <div class="macro-item">
+                                    <div class="macro-info">
+                                        <strong>{macro.name}</strong>
+                                        <span class="macro-id">{macro.id}</span>
+                                    </div>
+                                    
+                                    <div class="macro-actions">
+                                        <button 
+                                            class="button button-small" 
+                                            on:click={() => assignMacro(macro.id)}
+                                            disabled={isSaving}
+                                        >
+                                            Assign
+                                        </button>
+                                        
+                                        <button 
+                                            class="button button-small button-secondary" 
+                                            on:click={() => previewMacroAssignment(macro.id)}
+                                        >
+                                            Preview
+                                        </button>
+                                    </div>
+                                </div>
+                            </li>
+                        {/each}
+                    </ul>
+                {/if}
+            </div>
+            
+            <div class="pending-actions">
+                <button 
+                    class="button button-secondary" 
+                    on:click={cancelPendingChanges}
+                >
+                    Cancel All Changes
+                </button>
+                
+                <button 
+                    class="button" 
+                    on:click={saveConfiguration}
+                    disabled={isSaving}
+                >
+                    {isSaving ? 'Saving...' : 'Save All Changes'}
+                </button>
+            </div>
+        </div>
     {/if}
 </div>
 
 <style>
-    .macro-assignment-panel {
-        padding: 1rem;
-        background-color: #f9fafb;
-        border-radius: 0.5rem;
+    .macro-editor {
+        padding: 15px;
+        border-radius: 8px;
+        background-color: white;
+        border: 1px solid #e5e7eb;
+    }
+    
+    h2, h3, h4 {
+        margin-top: 0;
+    }
+    
+    .loading, .no-selection {
+        padding: 20px;
+        text-align: center;
+        color: #6b7280;
+    }
+    
+    .error-message {
+        background-color: #fee2e2;
+        border: 1px solid #ef4444;
+        color: #b91c1c;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+    }
+    
+    .editor-content {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .current-assignment {
+        padding: 15px;
+        background-color: #f3f4f6;
+        border-radius: 6px;
+    }
+    
+    .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    
+    .macro-list {
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 10px;
+    }
+    
+    .macro-list h4 {
+        margin-bottom: 10px;
+    }
+    
+    .macro-list ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .macro-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .macro-item:last-child {
+        border-bottom: none;
+    }
+    
+    .macro-id {
+        display: block;
+        font-size: 0.8em;
+        color: #6b7280;
+    }
+    
+    .macro-actions {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .button {
+        padding: 8px 12px;
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .button:hover {
+        background-color: #2563eb;
+    }
+    
+    .button:disabled {
+        background-color: #93c5fd;
+        cursor: not-allowed;
+    }
+    
+    .button-secondary {
+        background-color: #6b7280;
+    }
+    
+    .button-secondary:hover {
+        background-color: #4b5563;
+    }
+    
+    .button-danger {
+        background-color: #ef4444;
+    }
+    
+    .button-danger:hover {
+        background-color: #dc2626;
+    }
+    
+    .button-small {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+    
+    .pending-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
     }
 </style>

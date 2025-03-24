@@ -340,17 +340,18 @@ function createConfigStore() {
         return Promise.reject(new Error('WebSocket not connected'))
       }
 
-      get(wsStore).sendMessage({
-        type: 'save_config',
-        data: { modules }
-      })
-
-      update(state => ({
-        ...state,
-        lastSaved: new Date().toISOString()
-      }))
-
-      return Promise.resolve(true)
+      return wsStore
+        .sendMessage({
+          type: 'save_config',
+          data: { modules }
+        })
+        .then(() => {
+          update(state => ({
+            ...state,
+            lastSaved: new Date().toISOString()
+          }))
+          return true
+        })
     }
   }
 }
