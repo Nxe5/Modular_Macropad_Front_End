@@ -1,444 +1,347 @@
 <!-- src/lib/MacroEditor.svelte -->
 <script>
-    let activeTab = 'commands';
-    let reports = [new Array(8).fill(0)];
-    let selectedCategory = 'basic';
-    let selectedCommand = '';
-
-    // Ducky Script state
-    let duckyLines = [];
-    let selectedDuckyCommand = 'REM';
-    let duckyValue = '';
-
-    const duckyCommands = [
-        'REM',
-        'DELAY',
-        'DEFAULT_DELAY',
-        'GUI',
-        'STRING',
-        'ENTER',
-        'CTRL',
-        'ALT',
-        'SHIFT'
-    ];
-
-    function needsValue(command) {
-        return ['STRING', 'DELAY', 'DEFAULT_DELAY', 'REM'].includes(command);
-    }
-
-    function addDuckyLine() {
-        if (needsValue(selectedDuckyCommand) && !duckyValue) return;
-        duckyLines = [...duckyLines, { command: selectedDuckyCommand, value: duckyValue }];
-        duckyValue = '';
-    }
-
-    function removeDuckyLine(index) {
-        duckyLines = duckyLines.filter((_, i) => i !== index);
-    }
-
-    const categories = {
-        basic: {
-            name: 'Basic Keys',
-            description: 'Common keyboard keys',
-            commands: {
-                ...Object.fromEntries(
-                    Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ').map(
-                        (char, i) => [char.toLowerCase(), { 
-                            code: 0x04 + i, 
-                            name: char 
-                        }]
-                    )
-                ),
-                ...Object.fromEntries(
-                    Array.from('1234567890').map(
-                        (num, i) => [`num${num}`, {
-                            code: 0x1E + i,
-                            name: num
-                        }]
-                    )
-                )
-            }
-        },
-        modifiers: {
-            name: 'Modifier Keys',
-            description: 'Control, Alt, Shift, etc.',
-            commands: {
-                leftCtrl: { code: 0xE0, name: 'Left Ctrl' },
-                rightCtrl: { code: 0xE4, name: 'Right Ctrl' },
-                leftShift: { code: 0xE1, name: 'Left Shift' },
-                rightShift: { code: 0xE5, name: 'Right Shift' },
-                leftAlt: { code: 0xE2, name: 'Left Alt' },
-                rightAlt: { code: 0xE6, name: 'Right Alt' },
-                leftGui: { code: 0xE3, name: 'Left GUI' },
-                rightGui: { code: 0xE7, name: 'Right GUI' }
-            }
-        },
-        media: {
-            name: 'Media Controls',
-            description: 'Media and browser controls',
-            commands: {
-                volUp: { code: 0xE9, name: 'Volume Up', type: 'consumer' },
-                volDown: { code: 0xEA, name: 'Volume Down', type: 'consumer' },
-                mute: { code: 0xE2, name: 'Mute', type: 'consumer' },
-                playPause: { code: 0xCD, name: 'Play/Pause', type: 'consumer' },
-                nextTrack: { code: 0xB5, name: 'Next Track', type: 'consumer' },
-                prevTrack: { code: 0xB6, name: 'Previous Track', type: 'consumer' },
-                stop: { code: 0xB7, name: 'Stop', type: 'consumer' },
-                browser: { code: 0xB2, name: 'Web Browser', type: 'consumer' },
-                email: { code: 0xB4, name: 'Email', type: 'consumer' },
-                calculator: { code: 0xB3, name: 'Calculator', type: 'consumer' }
-            }
-        },
-        // ... [rest of the categories remain the same]
-    };
-
-    function formatCommandDisplay(command) {
-        if (command.type === 'delay') {
-            return `DELAY ${command.value}ms`;
+    import { onMount } from 'svelte';
+    import { macroStore, wsStore, configStore } from '../../lib/api.ts';
+    import { MacropadState } from '../../stores/MacropadStore.svelte.js';
+    
+    // State
+    let macros = [];
+    let loading = true;
+    let error = null;
+    let isConnected = false;
+    let isSaving = false;
+    
+    // Get the selected component
+    $: selectedComponent = MacropadState.selectedComponent;
+    $: selectedComponentMacro = getAssignedMacro(selectedComponent);
+    
+    // Load config store state
+    let configState;
+    const unsubscribeConfig = configStore.subscribe(state => {
+        configState = state;
+        isSaving = state.loading;
+        if (state.error) {
+            error = `Failed to save configuration: ${state.error}`;
         }
-        return `${command.name} (0x${command.code.toString(16).padStart(2, '0').toUpperCase()})`;
-    }
-
-    function addCommand(command) {
-        const newReport = new Array(8).fill(0);
-        
-        switch (command.type) {
-            case 'consumer':
-                newReport[0] = command.code;
-                break;
-            case 'system':
-                newReport[1] = command.code;
-                break;
-            case 'mouse':
-            case 'mouse_wheel':
-                newReport[0] = command.code;
-                break;
-            case 'delay':
-                return;
-            default:
-                newReport[2] = command.code;
+    });
+    
+    // Subscribe to websocket connection status
+    const unsubscribeWs = wsStore.subscribe(state => {
+        isConnected = state.connected;
+    });
+    
+    onMount(async () => {
+        try {
+            loading = true;
+            macros = await macroStore.fetchAll();
+            loading = false;
+        } catch (err) {
+            error = err.message || 'Failed to load macros';
+            loading = false;
         }
         
-        reports = [...reports, newReport];
+        return () => {
+            unsubscribeWs();
+            unsubscribeConfig();
+        };
+    });
+    
+    // Helper function to get modules from the MacropadTab component
+    function getModules() {
+        return document.querySelector('.macropad-view')?.parentNode?.__svelte?.ctx?.get(0);
     }
-
-    function removeReport(index) {
-        reports = reports.filter((_, i) => i !== index);
-    }
-
-    function updateByte(reportIndex, byteIndex, value) {
-        const numValue = parseInt(value.replace(/^0x/, ''), 16);
-        if (isNaN(numValue) || numValue < 0 || numValue > 255) return;
+    
+    // Helper function to find a component by ID in modules
+    function findComponent(componentId) {
+        const modules = getModules();
+        if (!modules) return null;
         
-        const newReports = [...reports];
-        newReports[reportIndex][byteIndex] = numValue;
-        reports = newReports;
+        for (const module of modules) {
+            for (const component of module.components) {
+                if (component.id === componentId) {
+                    return component;
+                }
+            }
+        }
+        return null;
+    }
+    
+    // Helper function to get the assigned macro (if any) for a component
+    function getAssignedMacro(componentId) {
+        if (!componentId) return null;
+        
+        const component = findComponent(componentId);
+        if (!component || !component.keyBinding || !component.keyBinding.startsWith('macro:')) {
+            return null;
+        }
+        
+        const macroId = component.keyBinding.replace('macro:', '');
+        if (!macros.length) return { id: macroId, name: 'Loading...' };
+        
+        const macro = macros.find(m => m.id === macroId);
+        return macro || null;
+    }
+    
+    // Function to save the configuration
+    async function saveConfiguration() {
+        const modules = getModules();
+        if (!modules) {
+            alert('Could not access module configuration. Please try again.');
+            return false;
+        }
+        
+        try {
+            if (isConnected) {
+                await configStore.saveConfigWs(modules);
+            } else {
+                await configStore.saveConfig(modules);
+            }
+            return true;
+        } catch (err) {
+            error = err.message || 'Failed to save configuration';
+            return false;
+        }
+    }
+    
+    // Function to assign a macro to the selected component
+    async function assignMacro(macroId) {
+        // Find the selected component in all modules
+        if (selectedComponent) {
+            const component = findComponent(selectedComponent);
+            
+            if (component) {
+                // Update the keyBinding to reference the macro
+                component.keyBinding = `macro:${macroId}`;
+                
+                // Save the configuration
+                const success = await saveConfiguration();
+                
+                if (success) {
+                    // Refresh the component display
+                    refreshComponent();
+                    
+                    // Success message
+                    const macro = macros.find(m => m.id === macroId);
+                    if (macro) {
+                        alert(`Macro "${macro.name}" successfully assigned to component ${selectedComponent}`);
+                    }
+                }
+            } else {
+                // Component not found error
+                alert(`Component ${selectedComponent} not found in any module`);
+            }
+        }
+    }
+    
+    // Function to remove a macro assignment
+    async function removeMacroAssignment() {
+        if (selectedComponent) {
+            const component = findComponent(selectedComponent);
+            
+            if (component && component.keyBinding && component.keyBinding.startsWith('macro:')) {
+                // Save original keyBinding for error recovery
+                const originalKeyBinding = component.keyBinding;
+                
+                // Clear the keyBinding
+                component.keyBinding = '';
+                
+                // Save the configuration
+                const success = await saveConfiguration();
+                
+                if (success) {
+                    // Refresh the component display
+                    refreshComponent();
+                    
+                    // Success message
+                    alert(`Macro assignment removed from component ${selectedComponent}`);
+                } else {
+                    // Restore original keyBinding on save failure
+                    component.keyBinding = originalKeyBinding;
+                }
+            } else {
+                // No macro assigned
+                alert(`No macro assigned to component ${selectedComponent}`);
+            }
+        }
+    }
+    
+    // Helper function to refresh the component display
+    function refreshComponent() {
+        setTimeout(() => {
+            // Force a UI refresh by deselecting and reselecting the component
+            const type = MacropadState.selectedComponentType;
+            MacropadState.selectedComponent = null;
+            MacropadState.selectedComponentType = null;
+            setTimeout(() => {
+                MacropadState.selectedComponent = selectedComponent;
+                MacropadState.selectedComponentType = type;
+            }, 10);
+        }, 10);
+    }
+    
+    // Function to execute a macro for testing
+    async function executeMacro(macroId) {
+        try {
+            if (isConnected) {
+                await wsStore.executeMacro(macroId);
+            } else {
+                await macroStore.executeMacro(macroId);
+            }
+        } catch (err) {
+            error = err.message || 'Failed to execute macro';
+        }
+    }
+    
+    // Function to navigate to the macro editor
+    function goToMacroEditor() {
+        // Navigate to the Macros tab
+        document.querySelector('button[data-tab="macros"]')?.click();
     }
 </script>
 
-<div class="macro-creator">
-    <div class="tabs">
-        <button 
-            class:active={activeTab === 'commands'}
-            on:click={() => activeTab = 'commands'}
-        >
-            Commands
-        </button>
-        <button 
-            class:active={activeTab === 'ducky'}
-            on:click={() => activeTab = 'ducky'}
-        >
-            Ducky Script
-        </button>
-        <button 
-            class:active={activeTab === 'manual'}
-            on:click={() => activeTab = 'manual'}
-        >
-            Manual
-        </button>
+<div class="macro-assignment-panel">
+    <h3 class="text-lg font-medium mb-4">Assign Macro to Component</h3>
+    
+    {#if !selectedComponent}
+        <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+            <p>No component selected. Please select a component first.</p>
     </div>
-
-    {#if activeTab === 'commands'}
-        <div class="commands-tab">
-            <div class="category-select">
-                <select bind:value={selectedCategory}>
-                    {#each Object.entries(categories) as [key, category]}
-                        <option value={key}>{category.name}</option>
-                    {/each}
-                </select>
-                <p class="category-description">
-                    {categories[selectedCategory].description}
-                </p>
+    {:else}
+        <div class="mb-4">
+            <div class="flex justify-between items-center">
+                <p>Component: <strong>{selectedComponent}</strong></p>
+                
+                {#if configState?.lastSaved}
+                    <span class="text-xs text-gray-500">
+                        Last saved: {new Date(configState.lastSaved).toLocaleTimeString()}
+                    </span>
+                {/if}
             </div>
 
-            <div class="commands-grid">
-                {#each Object.entries(categories[selectedCategory].commands) as [key, command]}
+            {#if selectedComponentMacro}
+                <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-sm font-medium text-blue-800">Assigned Macro: {selectedComponentMacro.name}</p>
+                            <p class="text-xs text-blue-600">ID: {selectedComponentMacro.id}</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button
+                                class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600 flex items-center"
+                                on:click={() => executeMacro(selectedComponentMacro.id)}
+                                disabled={!isConnected}
+                            >
+                                Test
+                            </button>
+                            
                     <button 
-                        class="command-button"
-                        on:click={() => addCommand(command)}
+                                class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 flex items-center"
+                                on:click={removeMacroAssignment}
+                                disabled={isSaving}
                     >
-                        {formatCommandDisplay(command)}
+                                Remove
                     </button>
-                {/each}
+                        </div>
+                    </div>
             </div>
+            {/if}
         </div>
         
-        <div class="sequence-view">
-            <h3>Command Sequence</h3>
-            {#each reports as report, reportIndex}
-                <div class="report-row">
-                    <span class="report-number">#{reportIndex + 1}</span>
-                    <span class="report-content">
-                        {report.map(byte => byte.toString(16).padStart(2, '0').toUpperCase()).join(' ')}
-                    </span>
+        {#if !isConnected}
+            <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+                <strong>Notice:</strong> Not connected to the device. Macro execution testing will not work.
+            </div>
+        {/if}
+        
+        {#if error}
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <strong>Error:</strong> {error}
                     <button 
-                        class="remove-btn"
-                        on:click={() => removeReport(reportIndex)}
+                    class="float-right font-bold"
+                    on:click={() => error = null}
                     >
                         ×
                     </button>
                 </div>
-            {/each}
+        {/if}
+        
+        {#if loading || isSaving}
+            <div class="flex justify-center py-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                <p class="ml-3 text-gray-600">{isSaving ? 'Saving...' : 'Loading...'}</p>
+            </div>
+        {:else if macros.length === 0}
+            <div class="bg-gray-100 rounded-lg p-6 text-center">
+                <p class="text-gray-500 mb-4">No macros available. Create some macros first.</p>
+                <button
+                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    on:click={goToMacroEditor}
+                >
+                    Go to Macro Editor
+                </button>
+            </div>
+        {:else}
+            <h4 class="font-medium text-gray-700 mb-2">{selectedComponentMacro ? 'Assign Different Macro' : 'Available Macros'}</h4>
+            
+            <div class="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto p-2">
+                {#each macros as macro}
+                    {#if !selectedComponentMacro || selectedComponentMacro.id !== macro.id}
+                        <div class="bg-white shadow rounded-lg overflow-hidden">
+                            <div class="p-3">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="font-medium">{macro.name}</h4>
         </div>
 
-    {:else if activeTab === 'ducky'}
-        <div class="ducky-tab">
-            <div class="ducky-line-adder">
-                <select bind:value={selectedDuckyCommand}>
-                    {#each duckyCommands as command}
-                        <option value={command}>{command}</option>
-                    {/each}
-                </select>
-                
-                {#if needsValue(selectedDuckyCommand)}
-                    <input 
-                        type={selectedDuckyCommand === 'DELAY' || selectedDuckyCommand === 'DEFAULT_DELAY' ? 'number' : 'text'}
-                        placeholder={
-                            selectedDuckyCommand === 'REM' ? 'Comment' :
-                            selectedDuckyCommand === 'DELAY' ? 'Milliseconds' :
-                            selectedDuckyCommand === 'DEFAULT_DELAY' ? 'Default delay in ms' :
-                            'Text to type'
-                        }
-                        bind:value={duckyValue}
-                    />
+                                {#if macro.description}
+                                    <p class="text-sm text-gray-600 mt-1">{macro.description}</p>
                 {/if}
                 
-                <button on:click={addDuckyLine}>Add Command</button>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    {(macro.commands || []).length} commands
+                                </p>
             </div>
 
-            <div class="ducky-lines">
-                {#each duckyLines as line, i}
-                    <div class="ducky-line">
-                        <span class="quack">QUACK</span>
-                        <span class="command">{line.command}</span>
-                        {#if line.value}
-                            <span class="value">{line.value}</span>
-                        {/if}
+                            <div class="bg-gray-50 px-3 py-2 border-t flex justify-between">
+                                <button
+                                    class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 flex items-center"
+                                    on:click={() => executeMacro(macro.id)}
+                                    disabled={!isConnected}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                                    </svg>
+                                    Test
+                                </button>
+                                
                         <button 
-                            class="remove-btn"
-                            on:click={() => removeDuckyLine(i)}
+                                    class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                                    on:click={() => assignMacro(macro.id)}
+                                    disabled={isSaving}
                         >
-                            ×
+                                    Assign
                         </button>
                     </div>
+                        </div>
+                    {/if}
                 {/each}
-            </div>
         </div>
 
-    {:else}
-        <div class="manual-tab">
-            {#each reports as report, reportIndex}
-                <div class="report-row">
-                    <span class="report-number">#{reportIndex + 1}</span>
-                    {#each report as byte, byteIndex}
-                        <input 
-                            type="text"
-                            value={'0x' + byte.toString(16).padStart(2, '0').toUpperCase()}
-                            on:input={(e) => updateByte(reportIndex, byteIndex, e.target.value)}
-                            class="byte-input"
-                        />
-                    {/each}
+            <div class="mt-4 pt-4 border-t border-gray-200">
                     <button 
-                        class="remove-btn"
-                        on:click={() => removeReport(reportIndex)}
+                    class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 w-full"
+                    on:click={goToMacroEditor}
                     >
-                        ×
+                    Manage Macros
                     </button>
                 </div>
-            {/each}
-        </div>
+        {/if}
     {/if}
-
-    <button class="add-btn" on:click={() => reports = [...reports, new Array(8).fill(0)]}>
-        Add Report
-    </button>
 </div>
 
 <style>
-    .macro-creator {
-        max-width: 800px;
-        margin: 0 auto;
+    .macro-assignment-panel {
         padding: 1rem;
-    }
-
-    .tabs {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .tabs button {
-        padding: 0.5rem 1rem;
-        border: none;
-        background: #eee;
-        cursor: pointer;
-        border-radius: 4px;
-    }
-
-    .tabs button.active {
-        background: #007bff;
-        color: white;
-    }
-
-    .category-select {
-        margin-bottom: 1rem;
-    }
-
-    .category-description {
-        color: #666;
-        font-size: 0.9rem;
-        margin-top: 0.5rem;
-    }
-
-    .commands-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .command-button {
-        padding: 0.5rem;
-        background: #f8f9fa;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        cursor: pointer;
-        text-align: left;
-        font-size: 0.9rem;
-    }
-
-    .command-button:hover {
-        background: #e9ecef;
-    }
-
-    .sequence-view, .ducky-tab {
-        margin-top: 1rem;
-        padding: 1rem;
-        background: #f8f9fa;
-        border-radius: 4px;
-    }
-
-    .report-row {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-        margin-bottom: 0.5rem;
-        padding: 0.5rem;
-        background: white;
-        border-radius: 4px;
-    }
-
-    .report-number {
-        min-width: 2rem;
-        font-weight: bold;
-    }
-
-    .report-content {
-        font-family: monospace;
-        flex-grow: 1;
-    }
-
-    .byte-input {
-        width: 4rem;
-        padding: 0.25rem;
-        font-family: monospace;
-        text-align: center;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-
-    .remove-btn {
-        padding: 0.25rem 0.5rem;
-        background: #dc3545;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .add-btn {
-        width: 100%;
-        padding: 0.5rem;
-        margin-top: 1rem;
-        background: #28a745;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .ducky-line-adder {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-        padding: 1rem;
-        background: white;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-    }
-
-    .ducky-line-adder select {
-        min-width: 150px;
-    }
-
-    .ducky-line-adder input {
-        flex-grow: 1;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-
-    .ducky-lines {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .ducky-line {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-        padding: 0.5rem;
-        background: white;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-
-    .quack {
-        width: 60px;
-        color: #666;
-        font-family: monospace;
-        user-select: none;
-    }
-
-    .command {
-        min-width: 120px;
-        font-weight: bold;
-        color: #007bff;
-    }
-
-    .value {
-        flex-grow: 1;
-        font-family: monospace;
+        background-color: #f9fafb;
+        border-radius: 0.5rem;
     }
 </style>
