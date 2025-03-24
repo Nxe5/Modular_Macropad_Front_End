@@ -1,23 +1,55 @@
 <script>
-    import { wsStore } from '../../lib/api.ts';
+    import wsStore from '../../lib/api/websocket.js';
+    import { onMount } from 'svelte';
     
     export let showLabel = true;
     export let position = 'top-right'; // Options: top-right, top-left, inline
     
     let connected = false;
+    let connecting = false;
+    let reconnectAttempts = 0;
     
     // Subscribe to websocket status
     const unsubscribe = wsStore.subscribe(state => {
         connected = state.connected;
     });
     
-    // Clean up subscription when component is destroyed
-    import { onDestroy } from 'svelte';
-    onDestroy(unsubscribe);
+    // Connect on component mount
+    onMount(() => {
+        // Try to connect immediately if not already connected
+        if (!connected) {
+            wsStore.connect();
+        }
+        
+        // Check again after a short delay (in case the initial check happened before subscription was ready)
+        const checkTimer = setTimeout(() => {
+            if (!connected) {
+                console.log('Connection check - still not connected, trying again');
+                wsStore.connect();
+            }
+        }, 1000);
+        
+        return () => {
+            clearTimeout(checkTimer);
+            unsubscribe();
+        };
+    });
     
     // Function to reconnect
     function reconnect() {
-        wsStore.connect();
+        if (connecting) return;
+        
+        connecting = true;
+        reconnectAttempts++;
+        
+        // Force disconnect first
+        wsStore.disconnect();
+        
+        // Then reconnect after a brief delay
+        setTimeout(() => {
+            wsStore.connect();
+            connecting = false;
+        }, 300);
     }
 </script>
 
@@ -35,8 +67,11 @@
             on:click={reconnect}
             aria-label="Reconnect to Macropad"
             title="Reconnect to Macropad"
+            disabled={connecting}
         >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="reconnect-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                 class={`reconnect-icon ${connecting ? 'animate-spin' : ''}`}>
                 <path d="M21 2v6h-6"></path>
                 <path d="M3 12a9 9 0 0 1 15-6.7l3-3"></path>
                 <path d="M3 22v-6h6"></path>
@@ -85,13 +120,26 @@
         justify-content: center;
     }
     
-    .reconnect-btn:hover {
+    .reconnect-btn:hover:not([disabled]) {
         transform: rotate(30deg);
         color: #b91c1c;
+    }
+    
+    .reconnect-btn[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
     
     .reconnect-icon {
         width: 1rem;
         height: 1rem;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .animate-spin {
+        animation: spin 1s linear infinite;
     }
 </style> 

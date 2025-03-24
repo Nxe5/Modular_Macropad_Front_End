@@ -2,7 +2,7 @@
 
 <script>
   import { onMount } from 'svelte';
-  import { wsStore } from '../../lib/api';
+  import wsStore from '../../lib/api/websocket.js';
 
   // State for storing config data
   let configData = {
@@ -14,6 +14,8 @@
   let activeConfigTab = 'modules';
   let loading = true;
   let error = null;
+  let configTimeout = null;
+  let receivedResponse = false;
   
   // Format JSON with indentation for better readability
   function formatJson(data) {
@@ -28,9 +30,17 @@
   onMount(async () => {
     try {
       loading = true;
+      receivedResponse = false;
       
-      // Request configuration data through WebSocket
-      wsStore.sendMessage({ type: 'get_all_configs' });
+      // Set a timeout to handle cases where WebSocket doesn't respond
+      configTimeout = setTimeout(() => {
+        if (!receivedResponse) {
+          console.log('No data received within timeout, using example data');
+          loading = false;
+          error = 'No response from device. Using sample data.';
+          loadSampleData();
+        }
+      }, 10000); // 10 second timeout
       
       // Subscribe to WebSocket events to receive configuration data
       const unsubscribe = wsStore.subscribe(state => {
@@ -39,6 +49,8 @@
           const latestEvent = state.events[state.events.length - 1];
           
           if (latestEvent.type === 'config_data') {
+            receivedResponse = true;
+            
             if (latestEvent.configType === 'modules') {
               configData.modules = latestEvent.data;
             } else if (latestEvent.configType === 'macros') {
@@ -48,12 +60,44 @@
             }
             
             loading = false;
+            error = null;
+          } else if (latestEvent.type === 'all_configs') {
+            receivedResponse = true;
+            
+            // Handle all configs in a single message
+            if (latestEvent.modules) {
+              configData.modules = latestEvent.modules;
+            }
+            if (latestEvent.macros) {
+              configData.macros = latestEvent.macros;
+            }
+            if (latestEvent.system) {
+              configData.system = latestEvent.system;
+            }
+            
+            loading = false;
+            error = null;
           }
+        }
+        
+        // If WebSocket is connected, request configs
+        if (state.connected && !receivedResponse) {
+          // Schedule the request with a small delay to ensure connection is ready
+          setTimeout(() => {
+            console.log('Requesting configurations via WebSocket');
+            wsStore.sendMessage({ type: 'get_all_configs' })
+              .catch(err => {
+                console.error('Error requesting configs:', err);
+              });
+          }, 500);
         }
       });
       
       return () => {
         unsubscribe();
+        if (configTimeout) {
+          clearTimeout(configTimeout);
+        }
       };
     } catch (err) {
       console.error('Failed to load configurations:', err);
@@ -87,16 +131,50 @@
     };
     loading = false;
   }
+  
+  // Manual refresh function
+  function refreshData() {
+    loading = true;
+    receivedResponse = false;
+    error = null;
+    
+    if (configTimeout) {
+      clearTimeout(configTimeout);
+    }
+    
+    configTimeout = setTimeout(() => {
+      if (!receivedResponse) {
+        console.log('No data received within timeout on refresh, using example data');
+        loading = false;
+        error = 'No response from device. Using sample data.';
+        loadSampleData();
+      }
+    }, 10000);
+    
+    wsStore.sendMessage({ type: 'get_all_configs' })
+      .catch(err => {
+        console.error('Error requesting configs on refresh:', err);
+      });
+  }
 </script>
 
 <div class="raw-config-container">
   <h2 class="text-2xl font-bold mb-4">Raw Configuration</h2>
   
   <div class="bg-white rounded-lg shadow p-4 mb-6">
-    <p class="text-gray-600 mb-4">
-      This page displays the raw JSON configuration files stored in the ESP32 memory.
-      You can view different configuration files by selecting the tabs below.
-    </p>
+    <div class="flex justify-between items-center mb-4">
+      <p class="text-gray-600">
+        This page displays the raw JSON configuration files stored in the ESP32 memory.
+      </p>
+      
+      <button 
+        class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm"
+        on:click={refreshData}
+        disabled={loading}
+      >
+        {loading ? 'Loading...' : 'Refresh'}
+      </button>
+    </div>
     
     {#if loading}
       <div class="flex justify-center items-center p-8">

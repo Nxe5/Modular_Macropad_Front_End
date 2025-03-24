@@ -1,6 +1,7 @@
 <script>
     import { onMount } from 'svelte';
-    import { macroStore, wsStore } from '../../lib/api.ts';
+    import { macroStore } from '../../lib/api.ts';
+    import wsStore from '../../lib/api/websocket.js';
     import CommandEditor from './CommandEditor.svelte';
     
     // State

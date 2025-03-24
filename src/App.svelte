@@ -8,8 +8,21 @@
   import MacrosPage from './components/macropad/MacrosPage.svelte';
   import ConnectionStatus from './components/common/ConnectionStatus.svelte';
   import RawConfigTab from './components/config/RawConfigTab.svelte';
+  import { onMount } from 'svelte';
+  import wsStore from './lib/api/websocket.js';
 
   let activeTab = 'macropad';
+  
+  // Initialize WebSocket connection on app mount
+  onMount(() => {
+    // Try to establish connection
+    wsStore.connect();
+    
+    // Return cleanup function
+    return () => {
+      wsStore.disconnect();
+    };
+  });
 </script>
 
 <main class="min-h-screen flex flex-col bg-gray-50">

@@ -1,7 +1,8 @@
 <!-- src/lib/MacroEditor.svelte -->
 <script>
     import { onMount } from 'svelte';
-    import { macroStore, wsStore, configStore } from '../../lib/api.ts';
+    import { macroStore, configStore } from '../../lib/api.ts';
+    import wsStore from '../../lib/api/websocket.js';
     import { MacropadState } from '../../stores/MacropadStore.svelte.js';
     
     // State

@@ -12,7 +12,8 @@ const components = moduleInfo.components;
 
 import {MacropadState} from "../../stores/MacropadStore.svelte.js";
 import { onMount } from 'svelte';
-import { macroStore, wsStore } from '../../lib/api.ts';
+import { macroStore } from '../../lib/api.ts';
+import wsStore from '../../lib/api/websocket.js';
 
 // Create event dispatcher
 const dispatch = createEventDispatcher();
