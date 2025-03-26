@@ -6,6 +6,7 @@
   import ConnectionSettings from './lib/components/ConnectionSettings.svelte';
   import ConfigDisplay from './lib/components/ConfigDisplay.svelte';
   import RawConfigTab from '$lib/components/RawConfigTab.svelte';
+  import MacroEditor from '$lib/components/MacroEditor.svelte';
   
   // Theme handling
   let isDarkMode = false;
@@ -77,6 +78,18 @@
         </button>
         
         <button
+          class={`py-4 px-2 border-b-2 font-medium text-sm ${currentTab === 'macros' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+          on:click={() => currentTab = 'macros'}
+        >
+          <div class="flex items-center space-x-2">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span>Macros</span>
+          </div>
+        </button>
+        
+        <button
           class={`py-4 px-2 border-b-2 font-medium text-sm ${currentTab === 'lighting' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           on:click={() => currentTab = 'lighting'}
         >
@@ -119,6 +132,11 @@
       <div class="bg-card rounded-lg p-6 shadow">
         <h2 class="text-xl font-semibold mb-4">Macropad Configuration</h2>
         <ConfigDisplay />
+      </div>
+    {:else if currentTab === 'macros'}
+      <div class="bg-card rounded-lg p-6 shadow">
+        <h2 class="text-xl font-semibold mb-4">Macro Management</h2>
+        <MacroEditor />
       </div>
     {:else if currentTab === 'lighting'}
       <div class="bg-card rounded-lg p-6 shadow">
