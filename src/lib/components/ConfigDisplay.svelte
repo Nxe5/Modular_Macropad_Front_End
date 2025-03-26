@@ -96,7 +96,7 @@
     // Find current binding for the selected component
     if (config.actions && selectedComponentId) {
       // The actions object has a layer-config property that contains the bindings
-      const binding = config.actions['layer-config']?.[selectedComponentId];
+      const binding = config.actions.actions['layer-config']?.[selectedComponentId];
       newBinding = binding ? binding.type : null;
     }
   }
@@ -141,8 +141,12 @@
               <div class="flex justify-between items-center">
                 <span class="font-medium">Current Binding:</span>
                 <span class="text-muted-foreground">
-                  {#if config.actions?.[selectedComponentId]}
-                    {getReportName(config.actions[selectedComponentId])}
+                  {#if config.actions?.actions?.['layer-config']?.[selectedComponentId]}
+                    {#if config.actions.actions['layer-config'][selectedComponentId].type === 'hid'}
+                      HID
+                    {:else}
+                      {getReportName(config.actions.actions['layer-config'][selectedComponentId])}
+                    {/if}
                   {:else}
                     None
                   {/if}
