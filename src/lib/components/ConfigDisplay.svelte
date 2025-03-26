@@ -19,27 +19,61 @@
   let error: string | null = null;
   let selectedComponentId: string | null = null;
   let newBinding: string | null = null;
+  let originalBinding: string | null = null;
   let isLoading = true;
+  let hasUnsavedChanges = false;
+
+  // Add new interfaces for navigation
+  interface NavigationTab {
+    id: string;
+    label: string;
+  }
+
+  let activeTab: string | null = null;
+  let navigationTabs: NavigationTab[] = [];
+
+  // Add keyboard layout data with lowercase letters
+  const keyboardLayout = [
+    ['Esc', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'],
+    ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'Backspace'],
+    ['Tab', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\'],
+    ['Caps', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', "'", 'Enter'],
+    ['Shift', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 'Shift'],
+    ['Ctrl', 'Win', 'Alt', 'Space', 'Alt', 'Fn', 'Ctrl']
+  ];
+
+  // Add modifier keys
+  const modifierKeys = ['Shift', 'Ctrl', 'Alt', 'Win'];
+
+  // Track selected modifier
+  let selectedModifier: string | null = null;
 
   function getReportName(action: any): string {
     if (!action || !config.reports) return '';
 
     if (action.type === 'hid' && action.buttonPress) {
       const hidCode = action.buttonPress[2];
-      // Check if there's a modifier key (shift) in the first byte
-      const hasShift = action.buttonPress[0] === 0x02;
+      const modifierByte = action.buttonPress[0];
       const report = config.reports.hid.find((r: any) => r.code === hidCode);
       
       if (report) {
-        // If it's a letter and has shift modifier, show it as uppercase
-        if (/^[A-Z]$/.test(report.name) && hasShift) {
-          return report.name;
+        // Handle modifiers
+        const modifiers = [];
+        if (modifierByte & 0x01) modifiers.push('Ctrl');
+        if (modifierByte & 0x02) modifiers.push('Shift');
+        if (modifierByte & 0x04) modifiers.push('Alt');
+        if (modifierByte & 0x08) modifiers.push('Win');
+
+        // If it's a letter, always show lowercase
+        if (/^[A-Z]$/.test(report.name)) {
+          return modifiers.length > 0 
+            ? `${modifiers.join(' + ')} + ${report.name.toLowerCase()}`
+            : report.name.toLowerCase();
         }
-        // If it's a letter and no shift modifier, show it as lowercase
-        if (/^[A-Z]$/.test(report.name) && !hasShift) {
-          return report.name.toLowerCase();
-        }
-        return report.name;
+        
+        return modifiers.length > 0 
+          ? `${modifiers.join(' + ')} + ${report.name}`
+          : report.name;
       }
       return 'HID (undefined)';
     }
@@ -69,7 +103,7 @@
     if (!action) return 'None';
     
     if (action.type === 'hid') {
-      return `HID: ${getReportName(action)}`;
+      return getReportName(action);
     }
     
     if (action.type === 'multimedia') {
@@ -129,13 +163,147 @@
     }
   }
 
+  // Function to update navigation tabs based on component type
+  function updateNavigationTabs(componentType: string | undefined) {
+    if (!componentType) {
+      navigationTabs = [];
+      activeTab = null;
+      return;
+    }
+
+    switch (componentType) {
+      case 'display':
+        navigationTabs = [
+          { id: 'gif', label: 'GIF' },
+          { id: 'img', label: 'Image' }
+        ];
+        activeTab = 'gif';
+        break;
+
+      case 'button':
+        navigationTabs = [
+          { id: 'keyboard', label: 'Keyboard' },
+          { id: 'extended', label: 'Extended' },
+          { id: 'macros', label: 'Macros' }
+        ];
+        activeTab = 'keyboard';
+        break;
+
+      case 'encoder':
+        const selectedComponent = config.components.components.find((c: { id: string }) => c.id === selectedComponentId);
+        navigationTabs = [
+          { id: 'clockwise', label: 'Clockwise' },
+          { id: 'counterclockwise', label: 'Counterclockwise' }
+        ];
+        
+        // Add button tab if encoder has a button
+        if (selectedComponent?.has_button) {
+          navigationTabs.push({ id: 'button', label: 'Button' });
+        }
+        
+        activeTab = 'clockwise';
+        break;
+
+      default:
+        navigationTabs = [];
+        activeTab = null;
+    }
+  }
+
+  // Function to revert changes
+  function revertChanges() {
+    if (!selectedComponentId) return;
+    newBinding = originalBinding;
+    selectedModifier = null;
+    hasUnsavedChanges = false;
+  }
+
+  // Update handleComponentSelect to track original binding
   function handleComponentSelect(componentId: string) {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Do you want to continue?')) {
+        return;
+      }
+    }
+    
     selectedComponentId = componentId;
-    // Find current binding for the selected component
     if (config.actions && selectedComponentId) {
-      // The actions object has a layer-config property that contains the bindings
       const binding = config.actions.actions['layer-config']?.[selectedComponentId];
-      newBinding = binding ? binding.type : null;
+      originalBinding = binding ? binding.type : null;
+      newBinding = originalBinding;
+      hasUnsavedChanges = false;
+    }
+    
+    const componentType = config.components.components.find((c: { id: string }) => c.id === selectedComponentId)?.type;
+    updateNavigationTabs(componentType);
+  }
+
+  // Update checkUnsavedChanges to compare with original binding
+  function checkUnsavedChanges() {
+    if (!selectedComponentId || !config.actions?.actions?.['layer-config']) return false;
+    return newBinding !== originalBinding;
+  }
+
+  // Update saveChanges to update originalBinding on success
+  async function saveChanges() {
+    if (!selectedComponentId || !config.actions?.actions?.['layer-config']) return;
+
+    try {
+      const updatedActions = { ...config.actions };
+      const componentBinding = updatedActions.actions['layer-config'][selectedComponentId];
+      
+      if (newBinding) {
+        // Update the binding type
+        componentBinding.type = newBinding;
+      } else {
+        // Remove the binding if set to None
+        delete updatedActions.actions['layer-config'][selectedComponentId];
+      }
+
+      // Send the updated actions to the macropad using esp32Config store
+      const baseUrl = `http://${$esp32Config.ip}:${$esp32Config.port}`;
+      const response = await fetch(`${baseUrl}/api/config/actions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedActions),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save changes');
+      }
+
+      // Update local config and original binding
+      config.actions = updatedActions;
+      originalBinding = newBinding;
+      hasUnsavedChanges = false;
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      error = 'Failed to save changes. Please try again.';
+    }
+  }
+
+  // Function to handle key selection
+  function handleKeySelect(key: string) {
+    if (selectedModifier) {
+      // If a modifier is selected, create a combined binding
+      newBinding = `${selectedModifier} + ${key}`;
+      selectedModifier = null;
+    } else if (modifierKeys.includes(key)) {
+      // If a modifier key is clicked, set it as selected
+      selectedModifier = key;
+    } else {
+      // Regular key selection
+      newBinding = key;
+    }
+    hasUnsavedChanges = checkUnsavedChanges();
+  }
+
+  // Add reactive statement to track changes
+  $: {
+    if (selectedComponentId) {
+      hasUnsavedChanges = checkUnsavedChanges();
     }
   }
 
@@ -227,6 +395,103 @@
         </div>
       </div>
     </div>
+
+    <!-- Bottom Navigation Section -->
+    {#if selectedComponentId && navigationTabs.length > 0}
+      <div class="mt-8 border-t pt-4">
+        <div class="flex justify-between items-center mb-4">
+          <div class="flex space-x-4">
+            {#each navigationTabs as tab}
+              <button
+                class="px-4 py-2 rounded-md transition-colors {activeTab === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+                on:click={() => activeTab = tab.id}
+              >
+                {tab.label}
+              </button>
+            {/each}
+          </div>
+          <div class="flex space-x-2">
+            <button
+              class="px-4 py-2 rounded-md bg-destructive text-destructive-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!hasUnsavedChanges}
+              on:click={revertChanges}
+            >
+              Revert
+            </button>
+            <button
+              class="px-4 py-2 rounded-md bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!hasUnsavedChanges}
+              on:click={saveChanges}
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+
+        <!-- Content area for each tab -->
+        <div class="mt-4">
+          {#if activeTab === 'gif' && config.components.components.find((c: { id: string; type: string }) => c.id === selectedComponentId)?.type === 'display'}
+            <div class="p-4 bg-card rounded-lg border">
+              <h4 class="font-medium mb-2">GIF Configuration</h4>
+              <!-- GIF configuration content will go here -->
+            </div>
+          {:else if activeTab === 'img' && config.components.components.find((c: { id: string; type: string }) => c.id === selectedComponentId)?.type === 'display'}
+            <div class="p-4 bg-card rounded-lg border">
+              <h4 class="font-medium mb-2">Image Configuration</h4>
+              <!-- Image configuration content will go here -->
+            </div>
+          {:else if activeTab === 'keyboard' && config.components.components.find((c: { id: string; type: string }) => c.id === selectedComponentId)?.type === 'button'}
+            <div class="p-4 bg-card rounded-lg border">
+              <h4 class="font-medium mb-2">Keyboard Binding</h4>
+              {#if selectedModifier}
+                <div class="mb-4 p-2 bg-muted rounded-md">
+                  Selected modifier: {selectedModifier}
+                </div>
+              {/if}
+              <div class="grid gap-2">
+                {#each keyboardLayout as row}
+                  <div class="flex gap-2 justify-center">
+                    {#each row as key}
+                      <button
+                        class="px-3 py-2 rounded-md border hover:bg-muted transition-colors {newBinding === key || (selectedModifier && key === selectedModifier) ? 'bg-primary text-primary-foreground' : ''}"
+                        on:click={() => handleKeySelect(key)}
+                      >
+                        {key}
+                      </button>
+                    {/each}
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {:else if activeTab === 'extended' && config.components.components.find((c: { id: string; type: string }) => c.id === selectedComponentId)?.type === 'button'}
+            <div class="p-4 bg-card rounded-lg border">
+              <h4 class="font-medium mb-2">Extended Keys</h4>
+              <!-- Extended keys content will go here -->
+            </div>
+          {:else if activeTab === 'macros' && config.components.components.find((c: { id: string; type: string }) => c.id === selectedComponentId)?.type === 'button'}
+            <div class="p-4 bg-card rounded-lg border">
+              <h4 class="font-medium mb-2">Macros</h4>
+              <!-- Macros content will go here -->
+            </div>
+          {:else if activeTab === 'clockwise' && config.components.components.find((c: { id: string; type: string }) => c.id === selectedComponentId)?.type === 'encoder'}
+            <div class="p-4 bg-card rounded-lg border">
+              <h4 class="font-medium mb-2">Clockwise Action</h4>
+              <!-- Clockwise action content will go here -->
+            </div>
+          {:else if activeTab === 'counterclockwise' && config.components.components.find((c: { id: string; type: string }) => c.id === selectedComponentId)?.type === 'encoder'}
+            <div class="p-4 bg-card rounded-lg border">
+              <h4 class="font-medium mb-2">Counterclockwise Action</h4>
+              <!-- Counterclockwise action content will go here -->
+            </div>
+          {:else if activeTab === 'button' && config.components.components.find((c: { id: string; type: string }) => c.id === selectedComponentId)?.type === 'encoder'}
+            <div class="p-4 bg-card rounded-lg border">
+              <h4 class="font-medium mb-2">Button Action</h4>
+              <!-- Button action content will go here -->
+            </div>
+          {/if}
+        </div>
+      </div>
+    {/if}
   {:else}
     <p class="text-muted-foreground">No configuration available</p>
   {/if}

@@ -5,6 +5,7 @@
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
   import ConnectionSettings from './lib/components/ConnectionSettings.svelte';
   import ConfigDisplay from './lib/components/ConfigDisplay.svelte';
+  import RawConfigTab from '$lib/components/RawConfigTab.svelte';
   
   // Theme handling
   let isDarkMode = false;
@@ -136,7 +137,7 @@
     {:else if currentTab === 'raw-config'}
       <div class="bg-card rounded-lg p-6 shadow">
         <h2 class="text-xl font-semibold mb-4">Raw Configuration</h2>
-        <p class="text-muted-foreground">View and edit the raw JSON configuration files.</p>
+        <RawConfigTab />
       </div>
     {/if}
   </main>
