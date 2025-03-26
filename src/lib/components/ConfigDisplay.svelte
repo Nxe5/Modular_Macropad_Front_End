@@ -26,8 +26,22 @@
 
     if (action.type === 'hid' && action.buttonPress) {
       const hidCode = action.buttonPress[2];
+      // Check if there's a modifier key (shift) in the first byte
+      const hasShift = action.buttonPress[0] === 0x02;
       const report = config.reports.hid.find((r: any) => r.code === hidCode);
-      return report ? report.name : 'HID (undefined)';
+      
+      if (report) {
+        // If it's a letter and has shift modifier, show it as uppercase
+        if (/^[A-Z]$/.test(report.name) && hasShift) {
+          return report.name;
+        }
+        // If it's a letter and no shift modifier, show it as lowercase
+        if (/^[A-Z]$/.test(report.name) && !hasShift) {
+          return report.name.toLowerCase();
+        }
+        return report.name;
+      }
+      return 'HID (undefined)';
     }
 
     if (action.type === 'multimedia') {
@@ -48,6 +62,30 @@
       }
     }
 
+    return action.type || 'None';
+  }
+
+  function getBindingDisplay(action: any): string {
+    if (!action) return 'None';
+    
+    if (action.type === 'hid') {
+      return `HID: ${getReportName(action)}`;
+    }
+    
+    if (action.type === 'multimedia') {
+      const parts = [];
+      if (action.clockwise) {
+        parts.push(`Clockwise: ${getReportName({ type: 'multimedia', clockwise: action.clockwise })}`);
+      }
+      if (action.counterclockwise) {
+        parts.push(`Counterclockwise: ${getReportName({ type: 'multimedia', counterclockwise: action.counterclockwise })}`);
+      }
+      if (action.buttonPress) {
+        parts.push(`Button: ${getReportName({ type: 'multimedia', buttonPress: action.buttonPress })}`);
+      }
+      return parts.join(', ');
+    }
+    
     return action.type || 'None';
   }
 
@@ -142,11 +180,7 @@
                 <span class="font-medium">Current Binding:</span>
                 <span class="text-muted-foreground">
                   {#if config.actions?.actions?.['layer-config']?.[selectedComponentId]}
-                    {#if config.actions.actions['layer-config'][selectedComponentId].type === 'hid'}
-                      HID
-                    {:else}
-                      {getReportName(config.actions.actions['layer-config'][selectedComponentId])}
-                    {/if}
+                    {getBindingDisplay(config.actions.actions['layer-config'][selectedComponentId])}
                   {:else}
                     None
                   {/if}
@@ -155,7 +189,11 @@
               <div class="flex justify-between items-center">
                 <span class="font-medium">New Binding:</span>
                 <span class="text-muted-foreground">
-                  {newBinding || 'None'}
+                  {#if newBinding}
+                    {getBindingDisplay({ type: newBinding })}
+                  {:else}
+                    None
+                  {/if}
                 </span>
               </div>
             </div>
