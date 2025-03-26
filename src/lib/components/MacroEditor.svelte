@@ -400,6 +400,15 @@
         return command.type;
     }
   }
+
+  function formatHexValue(value: any): string {
+    if (typeof value === 'string') {
+      return value.startsWith('0x') ? value : `0x${parseInt(value).toString(16).padStart(2, '0').toUpperCase()}`;
+    } else if (typeof value === 'number') {
+      return `0x${value.toString(16).padStart(2, '0').toUpperCase()}`;
+    }
+    return '0x00';
+  }
 </script>
 
 <div class="space-y-6">
@@ -518,6 +527,16 @@
                     {#each commands as command, index}
                       <li class="flex justify-between items-center p-2 bg-muted rounded">
                         <span class="text-sm">{getCommandDescription(command)}</span>
+                        <div class="report-display">
+                          Report: [
+                          {#if command.report && Array.isArray(command.report)}
+                            {#each command.report as value, i}
+                              {i > 0 ? ', ' : ''}
+                              {formatHexValue(value)}
+                            {/each}
+                          {/if}
+                          ]
+                        </div>
                         <button 
                           class="text-xs px-2 py-1 text-destructive hover:bg-destructive hover:text-destructive-foreground rounded"
                           on:click={() => removeCommand(index)}
