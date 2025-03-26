@@ -37,7 +37,7 @@
       if (!actionsResponse.ok) throw new Error('Failed to fetch actions config');
       if (!componentsResponse.ok) throw new Error('Failed to fetch components config');
       if (!infoResponse.ok) throw new Error('Failed to fetch info config');
-      if (!ledsResponse.ok) throw new Error('Failed to fetch leds config');
+      if (!ledsResponse.ok) throw new Error('Failed to fetch LEDs config');
       if (!reportsResponse.ok) throw new Error('Failed to fetch reports config');
 
       // Parse all responses
