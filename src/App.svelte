@@ -4,6 +4,7 @@
   import { Moon, Sun, Settings, Keyboard, Layers } from 'lucide-svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
   import ConnectionSettings from './lib/components/ConnectionSettings.svelte';
+  import ConfigDisplay from './lib/components/ConfigDisplay.svelte';
   
   // Theme handling
   let isDarkMode = false;
@@ -116,7 +117,7 @@
     {#if currentTab === 'macropad'}
       <div class="bg-card rounded-lg p-6 shadow">
         <h2 class="text-xl font-semibold mb-4">Macropad Configuration</h2>
-        <p class="text-muted-foreground">Configure your macropad keys and layouts here.</p>
+        <ConfigDisplay />
       </div>
     {:else if currentTab === 'lighting'}
       <div class="bg-card rounded-lg p-6 shadow">
