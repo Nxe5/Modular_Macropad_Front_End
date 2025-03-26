@@ -14,6 +14,7 @@
   }
 
   let activeSubtab = 'actions';
+  let logMessages: string[] = [];
   let configFiles: Record<string, ConfigFile> = {
     actions: { name: 'Actions', content: null, isLoading: true, error: null, originalContent: '', editedContent: '', hasChanges: false },
     components: { name: 'Components', content: null, isLoading: true, error: null, originalContent: '', editedContent: '', hasChanges: false },
@@ -22,81 +23,132 @@
     reports: { name: 'Reports', content: null, isLoading: true, error: null, originalContent: '', editedContent: '', hasChanges: false }
   };
 
-  function highlightJSON(json: string): string {
-    return json
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-        let cls = 'text-foreground';
-        if (/^"/.test(match)) {
-          if (/:$/.test(match)) {
-            cls = 'text-[#FF9AC1]'; // Pastel pink for keys
-          } else {
-            cls = 'text-[#A8E6CF]'; // Pastel green for strings
-          }
-        } else if (/true|false/.test(match)) {
-          cls = 'text-[#FFB3BA]'; // Pastel red for booleans
-        } else if (/null/.test(match)) {
-          cls = 'text-[#FFD3B6]'; // Pastel orange for null
-        } else {
-          cls = 'text-[#B5EAD7]'; // Pastel mint for numbers
-        }
-        return `<span class="${cls}">${match}</span>`;
-      })
-      .replace(/\n/g, '<br>')
-      .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
-      .replace(/ /g, '&nbsp;');
-  }
-
   function handleEdit(event: Event) {
     const textarea = event.target as HTMLTextAreaElement;
     const file = configFiles[activeSubtab];
-    file.editedContent = textarea.value;
-    file.hasChanges = file.editedContent !== file.originalContent;
+    const originalContent = file.originalContent;
+    const newContent = textarea.value;
+    file.editedContent = newContent;
+    
+    // Direct console log for debugging
+    window.console.log(`Content edited in ${file.name}. Original length: ${originalContent.length}, New length: ${newContent.length}`);
+    
+    // Check if content has actually changed
+    const hasChanged = newContent !== originalContent;
+    
+    // Only log if the hasChanges status changes
+    if (hasChanged !== file.hasChanges) {
+      if (hasChanged) {
+        window.console.log(`CHANGES DETECTED in ${file.name}`);
+        addLog(`Changes detected in ${file.name} configuration`);
+      } else {
+        window.console.log(`${file.name} reverted to original`);
+        addLog(`${file.name} configuration reverted to original`);
+      }
+    }
+    
+    file.hasChanges = hasChanged;
+  }
+
+  function addLog(message: string) {
+    const timestamp = new Date().toLocaleTimeString();
+    logMessages = [`[${timestamp}] ${message}`, ...logMessages.slice(0, 9)]; // Keep last 10 messages
   }
 
   function revertChanges() {
+    addLog(`Reverting changes for ${configFiles[activeSubtab].name}`);
     console.log('Reverting changes for', configFiles[activeSubtab].name);
     const file = configFiles[activeSubtab];
     file.editedContent = file.originalContent;
     file.hasChanges = false;
+    addLog(`Changes reverted successfully`);
     console.log('Changes reverted successfully');
   }
 
   async function saveChanges() {
-    console.log('Saving changes for', configFiles[activeSubtab].name);
+    window.console.log(`SAVE button clicked for ${configFiles[activeSubtab].name}`);
+    addLog(`Saving changes for ${configFiles[activeSubtab].name}`);
+    
     const file = configFiles[activeSubtab];
     try {
       const baseUrl = `http://${$esp32Config.ip}:${$esp32Config.port}`;
       const endpoint = activeSubtab === 'leds' ? 'LEDs' : activeSubtab;
       
-      console.log('Validating JSON before sending...');
-      // Validate JSON before sending
-      const parsedJson = JSON.parse(file.editedContent);
+      window.console.log('Validating JSON before sending...');
+      addLog(`Validating JSON before sending...`);
       
-      console.log('Sending POST request to', `${baseUrl}/api/config/${endpoint}`);
-      const response = await fetch(`${baseUrl}/api/config/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: file.editedContent
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to save ${file.name} config: ${response.status} ${response.statusText}`);
+      // Validate JSON before sending
+      let parsedJson;
+      try {
+        parsedJson = JSON.parse(file.editedContent);
+        window.console.log('JSON validation successful');
+        addLog(`JSON validation successful`);
+      } catch (jsonError) {
+        const errorMsg = `JSON validation failed: ${jsonError instanceof Error ? jsonError.message : 'Invalid JSON'}`;
+        window.console.error(errorMsg);
+        addLog(errorMsg);
+        file.error = errorMsg;
+        return;
       }
+      
+      const url = `${baseUrl}/api/config/${endpoint}`;
+      window.console.log('SENDING POST REQUEST to:', url);
+      addLog(`Sending POST request to ${url}`);
+      
+      try {
+        // Send the raw edited content without additional formatting
+        window.console.log('Request payload:', file.editedContent);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: file.editedContent
+        });
 
-      console.log('Save successful, updating local state');
-      // Update the content and reset changes
-      file.content = parsedJson;
-      file.originalContent = file.editedContent;
-      file.hasChanges = false;
-      console.log('Changes saved and state updated successfully');
+        window.console.log(`Response status: ${response.status} ${response.statusText}`);
+        addLog(`Response status: ${response.status} ${response.statusText}`);
+        
+        if (!response.ok) {
+          const errorMsg = `Failed to save ${file.name} config: ${response.status} ${response.statusText}`;
+          window.console.error(errorMsg);
+          addLog(`Error: ${errorMsg}`);
+          throw new Error(errorMsg);
+        }
+
+        // Try to parse the response as JSON
+        let responseData;
+        try {
+          responseData = await response.json();
+          window.console.log('Response data:', responseData);
+          addLog(`Response data: ${JSON.stringify(responseData)}`);
+        } catch (e) {
+          window.console.error('Could not parse response as JSON:', e);
+          addLog(`Could not parse response as JSON: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
+
+        window.console.log('Save successful, updating local state');
+        addLog(`Save successful, updating local state`);
+        
+        // Update the content - store without pretty formatting
+        file.content = parsedJson;
+        file.originalContent = file.editedContent;
+        file.hasChanges = false;
+        
+        window.console.log('Changes saved and state updated successfully');
+        addLog(`Changes saved and state updated successfully`);
+      } catch (fetchError) {
+        const errorMsg = fetchError instanceof Error ? fetchError.message : `Failed to save ${file.name} config`;
+        window.console.error('Fetch error:', fetchError);
+        addLog(`Network error: ${errorMsg}`);
+        file.error = errorMsg;
+      }
     } catch (e) {
-      console.error('Error saving changes:', e);
-      file.error = e instanceof Error ? e.message : `Failed to save ${file.name} config`;
+      const errorMsg = e instanceof Error ? e.message : `Failed to save ${file.name} config`;
+      window.console.error('Error saving changes:', e);
+      addLog(`Error: ${errorMsg}`);
+      file.error = errorMsg;
     }
   }
 
@@ -114,11 +166,17 @@
         throw new Error(`Failed to fetch ${file.name} config`);
       }
 
+      // Store the raw JSON as string - DO NOT FORMAT
       file.content = await response.json();
-      file.originalContent = JSON.stringify(file.content, null, 2);
+      // Store as a simple JSON string without pretty formatting
+      file.originalContent = JSON.stringify(file.content);
       file.editedContent = file.originalContent;
       file.hasChanges = false;
+      
+      // Add direct console log to debug
+      window.console.log(`Fetched ${file.name} config:`, file.content);
     } catch (e) {
+      window.console.error(`Error fetching ${file.name}:`, e);
       file.error = e instanceof Error ? e.message : `Failed to fetch ${file.name} config`;
     } finally {
       file.isLoading = false;
@@ -152,6 +210,28 @@
         {/if}
       </button>
     {/each}
+  </div>
+
+  <div class="text-xs bg-yellow-100 text-yellow-800 p-2 rounded mb-2">
+    <div>Debug Info: {activeSubtab} tab {configFiles[activeSubtab].hasChanges ? 'has changes' : 'no changes'}</div>
+    <div class="flex space-x-2 mt-1">
+      <button 
+        class="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+        on:click={() => {
+          addLog(`Manually toggling hasChanges for ${configFiles[activeSubtab].name}`);
+          configFiles[activeSubtab].hasChanges = !configFiles[activeSubtab].hasChanges;
+        }}>
+        Toggle hasChanges
+      </button>
+      <button 
+        class="bg-green-500 text-white px-2 py-1 rounded text-xs"
+        on:click={() => {
+          addLog(`Forcing save attempt for ${configFiles[activeSubtab].name}`);
+          saveChanges();
+        }}>
+        Force Save
+      </button>
+    </div>
   </div>
 
   <!-- Content -->
@@ -199,23 +279,34 @@
           <span>Save Changes</span>
         </button>
       </div>
-      <div class="relative">
-        <textarea
-          class="w-full h-[600px] font-mono text-sm bg-background border rounded-md p-4 resize-none"
-          bind:value={configFiles[activeSubtab].editedContent}
-          on:input={handleEdit}
-          spellcheck="false"
-        />
-        <div class="absolute inset-0 pointer-events-none whitespace-pre-wrap font-mono text-sm p-4 overflow-auto" style="color: transparent;">
-          {@html highlightJSON(configFiles[activeSubtab].editedContent)}
-        </div>
-      </div>
+      <textarea
+        class="w-full h-[600px] font-mono text-sm bg-background border rounded-md p-4 resize-none"
+        bind:value={configFiles[activeSubtab].editedContent}
+        on:input={handleEdit}
+        spellcheck="false"
+      />
     {:else}
       <div class="text-center text-muted-foreground py-8">
         No configuration data available
       </div>
     {/if}
   </div>
+  
+  {#if logMessages.length > 0}
+    <div class="mt-4 bg-black text-white p-4 rounded-md text-sm font-mono overflow-auto max-h-[200px]">
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="font-bold">Operation Log</h3>
+        <button 
+          class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded"
+          on:click={() => logMessages = []}>
+          Clear
+        </button>
+      </div>
+      {#each logMessages as message}
+        <div class="py-1">{message}</div>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 <style>
