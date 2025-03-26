@@ -212,28 +212,6 @@
     {/each}
   </div>
 
-  <div class="text-xs bg-yellow-100 text-yellow-800 p-2 rounded mb-2">
-    <div>Debug Info: {activeSubtab} tab {configFiles[activeSubtab].hasChanges ? 'has changes' : 'no changes'}</div>
-    <div class="flex space-x-2 mt-1">
-      <button 
-        class="bg-blue-500 text-white px-2 py-1 rounded text-xs"
-        on:click={() => {
-          addLog(`Manually toggling hasChanges for ${configFiles[activeSubtab].name}`);
-          configFiles[activeSubtab].hasChanges = !configFiles[activeSubtab].hasChanges;
-        }}>
-        Toggle hasChanges
-      </button>
-      <button 
-        class="bg-green-500 text-white px-2 py-1 rounded text-xs"
-        on:click={() => {
-          addLog(`Forcing save attempt for ${configFiles[activeSubtab].name}`);
-          saveChanges();
-        }}>
-        Force Save
-      </button>
-    </div>
-  </div>
-
   <!-- Content -->
   <div class="bg-card rounded-lg p-6 shadow">
     {#if configFiles[activeSubtab].isLoading}
